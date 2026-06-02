@@ -36,6 +36,12 @@ Shadowdark Battle Narrator can remember the last actor who damaged each target. 
 
 Automatic kill-credit logging can be turned on or off in the module settings.
 
+The module can also add short GM-only movement entries when character tokens move:
+
+```text
+Battle Logger | TYPE: move | ACTOR: Creeg Greythorn
+```
+
 ## GitHub Setup
 
 1. Create a new GitHub repository.

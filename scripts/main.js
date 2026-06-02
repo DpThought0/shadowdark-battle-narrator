@@ -13,6 +13,7 @@ const DEFAULT_TAGS = [
 ];
 const lastDamageByTarget = new Map();
 const loggedKills = new Set();
+const loggedMoves = new Set();
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
@@ -52,11 +53,19 @@ Hooks.on("updateActor", (actor, changes) => {
   void logKillCredit(actor);
 });
 
-Hooks.on("updateToken", (token, changes) => {
-  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
-  if (!isTokenMarkedDead(token, changes)) return;
+Hooks.on("updateToken", (...args) => {
+  if (!game.user?.isGM) return;
 
-  void logKillCredit(token.actor, token);
+  const { token, changes } = getTokenUpdateContext(args);
+  if (!token || !changes) return;
+
+  if (game.settings.get(MODULE_ID, "autoLogMoves") && isPlayerTokenMove(token, changes)) {
+    void logMove(token);
+  }
+
+  if (game.settings.get(MODULE_ID, "autoLogKills") && isTokenMarkedDead(token, changes)) {
+    void logKillCredit(getTokenActor(token), token);
+  }
 });
 
 Hooks.on("updateCombatant", combatant => {
@@ -115,6 +124,15 @@ function registerSettings() {
   game.settings.register(MODULE_ID, "autoLogKills", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogKills.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogKills.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(MODULE_ID, "autoLogMoves", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogMoves.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogMoves.Hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -233,10 +251,7 @@ async function createLoggerChatMessage(type, entry, visibility) {
   const prefix = game.settings.get(MODULE_ID, "logPrefix") || "Battle Logger";
   const round = game.combat?.round ?? "";
   const turn = game.combat?.combatant?.name ?? "";
-  const fields = [
-    ["TYPE", type],
-    ["TAG", entry.tag],
-    ["ACTOR", entry.actor],
+  const contextFields = entry.compact ? [] : [
     ["TARGET", entry.target],
     ["ITEM", entry.item],
     ["DAMAGE", entry.damage],
@@ -245,6 +260,12 @@ async function createLoggerChatMessage(type, entry, visibility) {
     ["TURN", turn],
     ["VISIBILITY", visibility],
     ["NOTE", entry.note]
+  ];
+  const fields = [
+    ["TYPE", type],
+    ["TAG", entry.tag],
+    ["ACTOR", entry.actor],
+    ...contextFields
   ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "");
   const line = [prefix, ...fields.map(([key, value]) => `${key}: ${value}`)].join(" | ");
   const content = `<p class="shadowdark-battle-narrator-log">${escapeHtml(line)}</p>`;
@@ -326,6 +347,21 @@ async function logKillCredit(actor, token) {
   });
 }
 
+async function logMove(token) {
+  const actor = getTokenActor(token);
+  if (!actor) return;
+
+  const moveKey = getMoveKey(actor);
+  if (moveKey && loggedMoves.has(moveKey)) return;
+
+  if (moveKey) loggedMoves.add(moveKey);
+  await postAutomatedLog({
+    type: "move",
+    actor: actor.name || token.name,
+    compact: true
+  });
+}
+
 function isActorMarkedDead(actor, changes) {
   const hpValue = getActorHpValue(actor);
   if (Number.isFinite(hpValue) && hpValue <= 0) return true;
@@ -338,8 +374,54 @@ function isActorMarkedDead(actor, changes) {
 function isTokenMarkedDead(token, changes) {
   return objectIncludesDeadMarker(changes)
     || objectIncludesDeadMarker(token.statuses)
-    || objectIncludesDeadMarker(token.actor?.statuses)
-    || objectIncludesDeadMarker(token.actor?.effects?.contents);
+    || objectIncludesDeadMarker(getTokenActor(token)?.statuses)
+    || objectIncludesDeadMarker(getTokenActor(token)?.effects?.contents);
+}
+
+function isPlayerTokenMove(token, changes) {
+  const actor = getTokenActor(token);
+  if (!actor || (actor.type !== "character" && !actor.hasPlayerOwner)) return false;
+
+  return hasOwn(changes, "x")
+    || hasOwn(changes, "y")
+    || hasOwn(changes, "elevation")
+    || foundry.utils?.hasProperty?.(changes, "x")
+    || foundry.utils?.hasProperty?.(changes, "y")
+    || foundry.utils?.hasProperty?.(changes, "elevation");
+}
+
+function getMoveKey(actor) {
+  const combat = game.combat;
+  if (!combat) return "";
+
+  return [
+    combat.id,
+    combat.round ?? 0,
+    combat.turn ?? 0,
+    actor.id
+  ].join(":");
+}
+
+function getTokenUpdateContext(args) {
+  const [first, second, third] = args;
+  if (isTokenLike(first)) return { token: first, changes: second };
+  if (isTokenLike(second)) return { token: second, changes: third };
+
+  return { token: null, changes: null };
+}
+
+function isTokenLike(value) {
+  return Boolean(value?.actor || value?.actorId || value?.documentName === "Token" || value?.constructor?.documentName === "Token");
+}
+
+function getTokenActor(token) {
+  if (token?.actor) return token.actor;
+  if (token?.actorId) return game.actors?.get(token.actorId);
+  return null;
+}
+
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object || {}, key);
 }
 
 function getActorHpValue(actor) {
