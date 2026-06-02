@@ -30,6 +30,12 @@ Battle Logger | TYPE: manual-tag | TAG: #fumble | ACTOR: Tyrex Zot II | ROUND: 2
 
 By default, tags are whispered to GMs so they stay out of player chat while still being present in the chat log for export. Actor and target choices are pulled from the world's Actors list, with manual override fields for one-off names. You can change the default visibility, tag list, and log prefix in the module settings.
 
+## Automatic Logs
+
+Shadowdark Battle Narrator can automatically add GM-only log entries when Foundry chat messages look like attack rolls. This keeps the attack in the session log without requiring the GM to add a manual tag every time.
+
+Automatic attack logging can be turned on or off in the module settings.
+
 ## GitHub Setup
 
 1. Create a new GitHub repository.

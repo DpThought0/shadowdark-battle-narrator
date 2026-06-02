@@ -16,6 +16,8 @@
   "SHADOWDARK_BATTLE_NARRATOR.Errors.DialogUnavailable": "Shadowdark Battle Narrator could not open the tag dialog in this Foundry version.",
   "SHADOWDARK_BATTLE_NARRATOR.Errors.MissingRequired": "Choose a tag and actor before saving a battle tag.",
   "SHADOWDARK_BATTLE_NARRATOR.Ready": "Shadowdark Battle Narrator is active.",
+  "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogAttacks.Hint": "Automatically create GM-only battle log entries when chat messages look like attack rolls.",
+  "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogAttacks.Name": "Automatically log attacks",
   "SHADOWDARK_BATTLE_NARRATOR.Settings.DefaultVisibility.Hint": "Choose whether new battle tags are public or whispered to GMs by default.",
   "SHADOWDARK_BATTLE_NARRATOR.Settings.DefaultVisibility.Name": "Default tag visibility",
   "SHADOWDARK_BATTLE_NARRATOR.Settings.LogPrefix.Hint": "The prefix used at the start of structured battle log chat messages.",

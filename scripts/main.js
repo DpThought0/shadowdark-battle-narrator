@@ -11,6 +11,28 @@ const DEFAULT_TAGS = [
   "#heroMoment",
   "#comment"
 ];
+const ATTACK_TERMS = [
+  "attack",
+  "attacks",
+  "attack roll",
+  "weapon attack",
+  "melee attack",
+  "ranged attack",
+  "spell attack"
+];
+const ATTACK_ACTION_TERMS = [
+  "dagger",
+  "sword",
+  "mace",
+  "hammer",
+  "axe",
+  "spear",
+  "bow",
+  "crossbow",
+  "staff",
+  "club",
+  "unarmed"
+];
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
@@ -34,6 +56,23 @@ Hooks.on("getSceneControlButtons", controls => {
     button: true,
     onChange: () => openBattleTagDialog()
   };
+});
+
+Hooks.on("createChatMessage", message => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogAttacks")) return;
+  if (message.flags?.[MODULE_ID]) return;
+
+  const attack = detectAttackMessage(message);
+  if (!attack) return;
+
+  void postAutomatedLog({
+    type: "attack",
+    actor: attack.actor,
+    target: attack.target,
+    item: attack.item,
+    rollTotal: attack.rollTotal,
+    note: attack.note
+  });
 });
 
 function registerSettings() {
@@ -66,6 +105,15 @@ function registerSettings() {
     config: true,
     type: String,
     default: DEFAULT_TAGS.join(", ")
+  });
+
+  game.settings.register(MODULE_ID, "autoLogAttacks", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogAttacks.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogAttacks.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
   });
 }
 
@@ -166,17 +214,30 @@ function collectBattleTagForm(form) {
 }
 
 async function postBattleTag(entry) {
+  await createLoggerChatMessage("manual-tag", entry, entry.visibility);
+}
+
+async function postAutomatedLog(entry) {
+  await createLoggerChatMessage(entry.type, {
+    ...entry,
+    visibility: "gm"
+  }, "gm");
+}
+
+async function createLoggerChatMessage(type, entry, visibility) {
   const prefix = game.settings.get(MODULE_ID, "logPrefix") || "Battle Logger";
   const round = game.combat?.round ?? "";
   const turn = game.combat?.combatant?.name ?? "";
   const fields = [
-    ["TYPE", "manual-tag"],
+    ["TYPE", type],
     ["TAG", entry.tag],
     ["ACTOR", entry.actor],
     ["TARGET", entry.target],
+    ["ITEM", entry.item],
+    ["ROLL", entry.rollTotal],
     ["ROUND", round],
     ["TURN", turn],
-    ["VISIBILITY", entry.visibility],
+    ["VISIBILITY", visibility],
     ["NOTE", entry.note]
   ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "");
   const line = [prefix, ...fields.map(([key, value]) => `${key}: ${value}`)].join(" | ");
@@ -187,19 +248,138 @@ async function postBattleTag(entry) {
     flags: {
       [MODULE_ID]: {
         ...entry,
-        type: "manual-tag",
+        type,
         round,
         turn,
+        visibility,
         createdBy: game.user.id
       }
     }
   };
 
-  if (entry.visibility === "gm") {
+  if (visibility === "gm") {
     messageData.whisper = ChatMessage.getWhisperRecipients("GM").map(user => user.id);
   }
 
   await ChatMessage.create(messageData);
+}
+
+function detectAttackMessage(message) {
+  const speakerActor = getSpeakerActor(message);
+  const contentText = htmlToText(message.content);
+  const flavorText = htmlToText(message.flavor);
+  const text = `${flavorText} ${contentText}`.trim();
+  const lowerText = text.toLocaleLowerCase();
+  const rolls = getMessageRolls(message);
+  const hasD20 = rolls.some(roll => rollContainsD20(roll)) || /\b\d*d20(?:kh|kl)?\b/i.test(text);
+  const attackTerm = ATTACK_TERMS.find(term => lowerText.includes(term));
+  const action = getFieldValue(text, "ACTION");
+  const check = getFieldValue(text, "CHECK");
+  const item = getMessageItemName(message, text);
+  const isDamageOnly = looksLikeDamageOnlyMessage(lowerText, hasD20, check);
+  const looksLikeAttack = !isDamageOnly && (
+    Boolean(attackTerm && (hasD20 || rolls.length === 0))
+    || Boolean(action && check)
+    || Boolean(action && hasD20 && looksLikeAttackAction(action))
+    || Boolean(item && hasD20)
+  );
+
+  if (!looksLikeAttack) return null;
+
+  return {
+    actor: speakerActor?.name || message.speaker?.alias || message.user?.name || "Unknown Actor",
+    target: getTargetName(message) || getInlineTarget(text),
+    item: item || action,
+    rollTotal: getPrimaryRollTotal(rolls) || check || getInlineD20Total(text),
+    note: text.slice(0, 180)
+  };
+}
+
+function getSpeakerActor(message) {
+  if (message.speaker?.actor) return game.actors?.get(message.speaker.actor);
+  if (message.actor) return message.actor;
+  return null;
+}
+
+function getTargetName(message) {
+  const targets = message.flags?.shadowdark?.targets
+    || message.flags?.core?.targets
+    || message.flags?.midiqol?.targets
+    || [];
+  const names = Array.from(targets)
+    .map(target => target?.name || target?.actor?.name || game.actors?.get(target?.actorId)?.name)
+    .filter(Boolean);
+
+  return names.join(", ");
+}
+
+function getMessageItemName(message, text) {
+  const itemId = message.flags?.shadowdark?.itemId
+    || message.flags?.core?.itemId
+    || message.flags?.dnd5e?.item?.id;
+  const actor = getSpeakerActor(message);
+  const item = itemId ? actor?.items?.get(itemId) : null;
+  if (item?.name) return item.name;
+
+  const action = getFieldValue(text, "ACTION");
+  if (action) return action;
+
+  const title = text.match(/^(.*?)\s*(?:attack|attacks|attack roll)/i)?.[1]?.trim();
+  return title && title.length <= 80 ? title : "";
+}
+
+function getMessageRolls(message) {
+  if (Array.isArray(message.rolls)) return message.rolls;
+  if (message.roll) return [message.roll];
+  return [];
+}
+
+function getPrimaryRollTotal(rolls) {
+  const roll = rolls.find(candidate => Number.isFinite(Number(candidate?.total))) || rolls[0];
+  return roll?.total ?? "";
+}
+
+function rollContainsD20(roll) {
+  const formula = String(roll?.formula || "").toLocaleLowerCase();
+  if (formula.includes("d20")) return true;
+
+  return Array.from(roll?.dice ?? []).some(die => die?.faces === 20);
+}
+
+function looksLikeDamageOnlyMessage(text, hasD20, check) {
+  if (hasD20 || check) return false;
+  return text.includes("damage") || /\b\d+d(?:4|6|8|10|12)\b/i.test(text);
+}
+
+function looksLikeAttackAction(action) {
+  const actionText = action.toLocaleLowerCase();
+  return ATTACK_ACTION_TERMS.some(term => actionText.includes(term));
+}
+
+function getFieldValue(text, field) {
+  const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = text.match(new RegExp(`\\b${escapedField}:\\s*([^|]+)`, "i"));
+  return match?.[1]?.trim() || "";
+}
+
+function getInlineTarget(text) {
+  const match = text.match(/\bTargets?\s+(.+?)(?:\s*\||$)/i);
+  return match?.[1]?.trim() || "";
+}
+
+function getInlineD20Total(text) {
+  const rollMatch = text.match(/\b\d*d20(?:kh|kl)?(?:\s*[+-]\s*\d+)?\s*=\s*(\d+)/i);
+  if (rollMatch?.[1]) return rollMatch[1];
+
+  const check = getFieldValue(text, "CHECK");
+  return check;
+}
+
+function htmlToText(value) {
+  const html = String(value || "");
+  const element = document.createElement("div");
+  element.innerHTML = html;
+  return (element.textContent || element.innerText || "").replace(/\s+/g, " ").trim();
 }
 
 function getSettingList(setting) {
