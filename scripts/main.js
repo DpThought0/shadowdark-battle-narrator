@@ -14,6 +14,8 @@ const DEFAULT_TAGS = [
 const lastDamageByTarget = new Map();
 const loggedKills = new Set();
 const loggedMoves = new Set();
+const loggedStatuses = new Set();
+const activeStatusByEffect = new Map();
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
@@ -76,17 +78,21 @@ Hooks.on("updateCombatant", combatant => {
 });
 
 Hooks.on("createActiveEffect", effect => {
-  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
-  if (!objectIncludesDeadMarker(effect)) return;
+  if (!game.user?.isGM) return;
 
-  void logKillCredit(effect.parent);
+  handleEffectChange(effect);
 });
 
 Hooks.on("updateActiveEffect", effect => {
-  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
-  if (!objectIncludesDeadMarker(effect)) return;
+  if (!game.user?.isGM) return;
 
-  void logKillCredit(effect.parent);
+  handleEffectChange(effect);
+});
+
+Hooks.on("deleteActiveEffect", effect => {
+  if (!game.user?.isGM) return;
+
+  handleEffectRemoval(effect);
 });
 
 function registerSettings() {
@@ -133,6 +139,15 @@ function registerSettings() {
   game.settings.register(MODULE_ID, "autoLogMoves", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogMoves.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogMoves.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(MODULE_ID, "autoLogStatuses", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogStatuses.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogStatuses.Hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -265,6 +280,7 @@ async function createLoggerChatMessage(type, entry, visibility) {
     ["TYPE", type],
     ["TAG", entry.tag],
     ["ACTOR", entry.actor],
+    ["STATUS", entry.status],
     ...contextFields
   ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "");
   const line = [prefix, ...fields.map(([key, value]) => `${key}: ${value}`)].join(" | ");
@@ -362,6 +378,55 @@ async function logMove(token) {
   });
 }
 
+function handleEffectChange(effect) {
+  const actor = getEffectActor(effect);
+  if (game.settings.get(MODULE_ID, "autoLogKills") && objectIncludesDeadMarker(effect)) {
+    void logKillCredit(actor);
+    return;
+  }
+
+  if (!game.settings.get(MODULE_ID, "autoLogStatuses")) return;
+
+  const status = getEffectName(effect);
+  if (!actor || !status || isDeadStatusName(status)) return;
+
+  const statusKey = `${actor.id}:${effect.id || status}:${status}`;
+  if (loggedStatuses.has(statusKey)) return;
+
+  loggedStatuses.add(statusKey);
+  rememberActiveStatus(effect, actor, status);
+  void postAutomatedLog({
+    type: "status",
+    actor: actor.name,
+    status,
+    compact: true
+  });
+}
+
+function handleEffectRemoval(effect) {
+  if (!game.settings.get(MODULE_ID, "autoLogStatuses")) return;
+
+  const remembered = activeStatusByEffect.get(effect.uuid || effect.id);
+  const actor = getEffectActor(effect) || remembered?.actor;
+  const status = getEffectName(effect) || remembered?.status;
+  if (!actor || !status || isDeadStatusName(status)) return;
+
+  activeStatusByEffect.delete(effect.uuid || effect.id);
+  void postAutomatedLog({
+    type: "status-ended",
+    actor: actor.name,
+    status,
+    compact: true
+  });
+}
+
+function rememberActiveStatus(effect, actor, status) {
+  const key = effect.uuid || effect.id;
+  if (!key) return;
+
+  activeStatusByEffect.set(key, { actor, status });
+}
+
 function isActorMarkedDead(actor, changes) {
   const hpValue = getActorHpValue(actor);
   if (Number.isFinite(hpValue) && hpValue <= 0) return true;
@@ -400,6 +465,23 @@ function getMoveKey(actor) {
     combat.turn ?? 0,
     actor.id
   ].join(":");
+}
+
+function getEffectActor(effect) {
+  const parent = effect?.parent;
+  if (parent?.documentName === "Actor" || parent?.constructor?.documentName === "Actor") return parent;
+  if (parent?.actor) return parent.actor;
+  if (effect?.actor) return effect.actor;
+  return null;
+}
+
+function getEffectName(effect) {
+  const firstStatus = effect?.statuses instanceof Set ? Array.from(effect.statuses)[0] : "";
+  return effect?.name || effect?.label || firstStatus || "";
+}
+
+function isDeadStatusName(status) {
+  return objectIncludesDeadMarker(status);
 }
 
 function getTokenUpdateContext(args) {

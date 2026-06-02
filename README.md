@@ -42,6 +42,18 @@ The module can also add short GM-only movement entries when character tokens mov
 Battle Logger | TYPE: move | ACTOR: Creeg Greythorn
 ```
 
+Status effects are also logged when applied:
+
+```text
+Battle Logger | TYPE: status | ACTOR: Creeg Greythorn | STATUS: Prone
+```
+
+When a status effect ends, the module logs that too:
+
+```text
+Battle Logger | TYPE: status-ended | ACTOR: Snow Ape | STATUS: Paralyzed
+```
+
 ## GitHub Setup
 
 1. Create a new GitHub repository.
