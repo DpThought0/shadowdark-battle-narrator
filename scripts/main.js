@@ -1,4 +1,4 @@
-const MODULE_ID = "codex-foundry-module";
+const MODULE_ID = "shadowdark-battle-narrator";
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
@@ -7,5 +7,5 @@ Hooks.once("init", () => {
 Hooks.once("ready", () => {
   if (!game.user?.isGM) return;
 
-  ui.notifications.info(game.i18n.localize("CODEX_FOUNDRY_MODULE.Ready"));
+  ui.notifications.info(game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Ready"));
 });

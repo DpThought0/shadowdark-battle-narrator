@@ -1,6 +1,6 @@
-# Codex Foundry Module
+# Shadowdark Battle Narrator
 
-A starter module for Foundry Virtual Tabletop, ready for local testing and GitHub release packaging.
+A Foundry Virtual Tabletop module for adding narrative texture to Shadowdark combat.
 
 ## Local Testing
 
@@ -16,7 +16,7 @@ For development, link this repository into that folder so changes are picked up 
 .\scripts\link-module.ps1
 ```
 
-Then restart Foundry, open a world, and enable **Codex Foundry Module** in **Manage Modules**.
+Then restart Foundry, open a world, and enable **Shadowdark Battle Narrator** in **Manage Modules**.
 
 ## GitHub Setup
 

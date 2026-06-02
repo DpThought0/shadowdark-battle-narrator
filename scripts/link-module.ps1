@@ -1,6 +1,6 @@
 param(
   [string]$FoundryDataPath = "$env:LOCALAPPDATA\FoundryVTT\Data",
-  [string]$ModuleId = "codex-foundry-module"
+  [string]$ModuleId = "shadowdark-battle-narrator"
 )
 
 $ErrorActionPreference = "Stop"
