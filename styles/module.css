@@ -1,3 +1,31 @@
 .shadowdark-battle-narrator-hidden {
   display: none;
 }
+
+.shadowdark-battle-narrator-form .form-group {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 120px minmax(0, 1fr);
+  margin: 0 0 10px;
+}
+
+.shadowdark-battle-narrator-form .form-group.stacked {
+  align-items: stretch;
+  grid-template-columns: 1fr;
+}
+
+.shadowdark-battle-narrator-form label {
+  font-weight: 600;
+}
+
+.shadowdark-battle-narrator-form textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.shadowdark-battle-narrator-log {
+  border-left: 3px solid #8b5cf6;
+  margin: 0;
+  padding-left: 8px;
+}

@@ -18,6 +18,18 @@ For development, link this repository into that folder so changes are picked up 
 
 Then restart Foundry, open a world, and enable **Shadowdark Battle Narrator** in **Manage Modules**.
 
+## Battle Tags
+
+When logged in as a GM, open the Token controls and click the feather button to create a battle tag.
+
+Battle tags are posted to Foundry chat in a consistent format:
+
+```text
+Battle Logger | TYPE: manual-tag | TAG: #fumble | ACTOR: Tyrex Zot II | ROUND: 2 | NOTE: Threw a spear into the darkness.
+```
+
+By default, tags are whispered to GMs so they stay out of player chat while still being present in the chat log for export. You can change the default visibility, tag list, roster, and log prefix in the module settings.
+
 ## GitHub Setup
 
 1. Create a new GitHub repository.
