@@ -32,9 +32,9 @@ By default, tags are whispered to GMs so they stay out of player chat while stil
 
 ## Automatic Logs
 
-Shadowdark Battle Narrator can automatically add GM-only log entries when Foundry chat messages look like attack rolls. This keeps the attack in the session log without requiring the GM to add a manual tag every time.
+Shadowdark Battle Narrator can remember the last actor who damaged each target. When that target is later marked dead or defeated, the module adds a GM-only kill-credit entry to the chat log.
 
-Automatic attack logging can be turned on or off in the module settings.
+Automatic kill-credit logging can be turned on or off in the module settings.
 
 ## GitHub Setup
 

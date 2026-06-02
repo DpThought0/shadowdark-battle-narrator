@@ -11,28 +11,8 @@ const DEFAULT_TAGS = [
   "#heroMoment",
   "#comment"
 ];
-const ATTACK_TERMS = [
-  "attack",
-  "attacks",
-  "attack roll",
-  "weapon attack",
-  "melee attack",
-  "ranged attack",
-  "spell attack"
-];
-const ATTACK_ACTION_TERMS = [
-  "dagger",
-  "sword",
-  "mace",
-  "hammer",
-  "axe",
-  "spear",
-  "bow",
-  "crossbow",
-  "staff",
-  "club",
-  "unarmed"
-];
+const lastDamageByTarget = new Map();
+const loggedKills = new Set();
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
@@ -59,20 +39,45 @@ Hooks.on("getSceneControlButtons", controls => {
 });
 
 Hooks.on("createChatMessage", message => {
-  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogAttacks")) return;
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
   if (message.flags?.[MODULE_ID]) return;
 
-  const attack = detectAttackMessage(message);
-  if (!attack) return;
+  rememberDamage(message);
+});
 
-  void postAutomatedLog({
-    type: "attack",
-    actor: attack.actor,
-    target: attack.target,
-    item: attack.item,
-    rollTotal: attack.rollTotal,
-    note: attack.note
-  });
+Hooks.on("updateActor", (actor, changes) => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
+  if (!isActorMarkedDead(actor, changes)) return;
+
+  void logKillCredit(actor);
+});
+
+Hooks.on("updateToken", (token, changes) => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
+  if (!isTokenMarkedDead(token, changes)) return;
+
+  void logKillCredit(token.actor, token);
+});
+
+Hooks.on("updateCombatant", combatant => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
+  if (!combatant.defeated) return;
+
+  void logKillCredit(combatant.actor, combatant.token);
+});
+
+Hooks.on("createActiveEffect", effect => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
+  if (!objectIncludesDeadMarker(effect)) return;
+
+  void logKillCredit(effect.parent);
+});
+
+Hooks.on("updateActiveEffect", effect => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
+  if (!objectIncludesDeadMarker(effect)) return;
+
+  void logKillCredit(effect.parent);
 });
 
 function registerSettings() {
@@ -107,9 +112,9 @@ function registerSettings() {
     default: DEFAULT_TAGS.join(", ")
   });
 
-  game.settings.register(MODULE_ID, "autoLogAttacks", {
-    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogAttacks.Name",
-    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogAttacks.Hint",
+  game.settings.register(MODULE_ID, "autoLogKills", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogKills.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogKills.Hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -234,6 +239,7 @@ async function createLoggerChatMessage(type, entry, visibility) {
     ["ACTOR", entry.actor],
     ["TARGET", entry.target],
     ["ITEM", entry.item],
+    ["DAMAGE", entry.damage],
     ["ROLL", entry.rollTotal],
     ["ROUND", round],
     ["TURN", turn],
@@ -264,35 +270,191 @@ async function createLoggerChatMessage(type, entry, visibility) {
   await ChatMessage.create(messageData);
 }
 
-function detectAttackMessage(message) {
-  const speakerActor = getSpeakerActor(message);
+function rememberDamage(message) {
   const contentText = htmlToText(message.content);
   const flavorText = htmlToText(message.flavor);
   const text = `${flavorText} ${contentText}`.trim();
   const lowerText = text.toLocaleLowerCase();
+  if (!lowerText.includes("damage roll") && !/\bdamage\b/i.test(text)) return;
+
+  const sourceActor = getSpeakerActor(message);
+  const source = sourceActor?.name || message.speaker?.alias || message.user?.name || "Unknown Actor";
+  const targets = getTargetEntries(message, text);
+  const damage = getDamageTotal(message, text);
+  const action = getFieldValue(text, "ACTION") || getInlineAction(text);
+
+  if (!targets.length || !damage) return;
+
+  for (const target of targets) {
+    const record = {
+      source,
+      sourceActorId: sourceActor?.id || "",
+      target: target.name,
+      targetActorId: target.actorId || "",
+      damage,
+      action,
+      messageId: message.id,
+      timestamp: Date.now()
+    };
+
+    for (const key of getDamageKeys(target.name, target.actorId)) {
+      lastDamageByTarget.set(key, record);
+    }
+  }
+}
+
+async function logKillCredit(actor, token) {
+  if (!actor) return;
+
+  const targetName = token?.name || actor.name;
+  const targetActorId = actor.id;
+  const killKey = token?.id ? `token:${token.id}` : `actor:${targetActorId}`;
+  if (loggedKills.has(killKey)) return;
+
+  const damage = findLastDamage(targetName, targetActorId);
+  if (!damage) return;
+
+  loggedKills.add(killKey);
+  await postAutomatedLog({
+    type: "kill-credit",
+    tag: "#kill",
+    actor: damage.source,
+    target: targetName,
+    damage: damage.damage,
+    item: damage.action,
+    note: `${damage.source} last damaged ${targetName}.`
+  });
+}
+
+function isActorMarkedDead(actor, changes) {
+  const hpValue = getActorHpValue(actor);
+  if (Number.isFinite(hpValue) && hpValue <= 0) return true;
+
+  return objectIncludesDeadMarker(changes)
+    || objectIncludesDeadMarker(actor.statuses)
+    || objectIncludesDeadMarker(actor.effects?.contents);
+}
+
+function isTokenMarkedDead(token, changes) {
+  return objectIncludesDeadMarker(changes)
+    || objectIncludesDeadMarker(token.statuses)
+    || objectIncludesDeadMarker(token.actor?.statuses)
+    || objectIncludesDeadMarker(token.actor?.effects?.contents);
+}
+
+function getActorHpValue(actor) {
+  const candidates = [
+    actor?.system?.attributes?.hp?.value,
+    actor?.system?.hp?.value,
+    actor?.system?.health?.value,
+    actor?.system?.attributes?.health?.value
+  ];
+  const value = candidates.find(candidate => Number.isFinite(Number(candidate)));
+  return value === undefined ? null : Number(value);
+}
+
+function objectIncludesDeadMarker(value) {
+  const text = flattenForSearch(value).toLocaleLowerCase();
+  return text.includes("dead")
+    || text.includes("defeated")
+    || text.includes("unconscious")
+    || text.includes("incapacitated");
+}
+
+function flattenForSearch(value, depth = 0) {
+  if (value === null || value === undefined || depth > 4) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value instanceof Set) return Array.from(value).map(item => flattenForSearch(item, depth + 1)).join(" ");
+  if (Array.isArray(value)) return value.map(item => flattenForSearch(item, depth + 1)).join(" ");
+  if (typeof value === "object") {
+    return Object.values(value).map(item => flattenForSearch(item, depth + 1)).join(" ");
+  }
+  return "";
+}
+
+function findLastDamage(targetName, actorId) {
+  const matches = getDamageKeys(targetName, actorId)
+    .map(key => lastDamageByTarget.get(key))
+    .filter(Boolean);
+
+  return matches.sort((left, right) => right.timestamp - left.timestamp)[0] || null;
+}
+
+function getDamageKeys(name, actorId) {
+  return [
+    actorId ? `actor:${actorId}` : "",
+    name ? `name:${normalizeName(name)}` : ""
+  ].filter(Boolean);
+}
+
+function getTargetEntries(message, text) {
+  const entries = [];
+  const targets = message.flags?.shadowdark?.targets
+    || message.flags?.core?.targets
+    || message.flags?.midiqol?.targets
+    || [];
+
+  for (const target of Array.from(targets)) {
+    const actorId = target?.actorId || target?.actor?.id || "";
+    const name = target?.name || target?.actor?.name || game.actors?.get(actorId)?.name;
+    if (name) entries.push({ name, actorId });
+  }
+
+  for (const name of getInlineTargets(text)) {
+    entries.push({
+      name,
+      actorId: findActorIdByName(name)
+    });
+  }
+
+  return dedupeTargets(entries);
+}
+
+function getDamageTotal(message, text) {
   const rolls = getMessageRolls(message);
-  const hasD20 = rolls.some(roll => rollContainsD20(roll)) || /\b\d*d20(?:kh|kl)?\b/i.test(text);
-  const attackTerm = ATTACK_TERMS.find(term => lowerText.includes(term));
-  const action = getFieldValue(text, "ACTION");
-  const check = getFieldValue(text, "CHECK");
-  const item = getMessageItemName(message, text);
-  const isDamageOnly = looksLikeDamageOnlyMessage(lowerText, hasD20, check);
-  const looksLikeAttack = !isDamageOnly && (
-    Boolean(attackTerm && (hasD20 || rolls.length === 0))
-    || Boolean(action && check)
-    || Boolean(action && hasD20 && looksLikeAttackAction(action))
-    || Boolean(item && hasD20)
-  );
+  const damageRoll = rolls.find(roll => !rollContainsD20(roll) && Number.isFinite(Number(roll?.total)));
+  if (damageRoll) return damageRoll.total;
 
-  if (!looksLikeAttack) return null;
+  const explicit = text.match(/\bDamage Roll\s+(\d+)/i);
+  if (explicit?.[1]) return explicit[1];
 
-  return {
-    actor: speakerActor?.name || message.speaker?.alias || message.user?.name || "Unknown Actor",
-    target: getTargetName(message) || getInlineTarget(text),
-    item: item || action,
-    rollTotal: getPrimaryRollTotal(rolls) || check || getInlineD20Total(text),
-    note: text.slice(0, 180)
-  };
+  const rollTotal = text.match(/\b\d+d(?:4|6|8|10|12)(?:\s*[+-]\s*\d+)?\s*=\s*(\d+)/i);
+  return rollTotal?.[1] || "";
+}
+
+function getInlineAction(text) {
+  const match = text.match(/\b(?:Attacking with|Damage from)\s+(.+?)(?:\s+Damage Roll|\s+Targets|\s*\||$)/i);
+  return match?.[1]?.trim() || "";
+}
+
+function getInlineTargets(text) {
+  const match = text.match(/\bTargets?\s+(.+?)(?:\s*\||$)/i);
+  if (!match?.[1]) return [];
+
+  return match[1]
+    .split(/,\s*|;\s*/)
+    .map(name => name.trim())
+    .filter(Boolean);
+}
+
+function dedupeTargets(targets) {
+  const seen = new Set();
+  return targets.filter(target => {
+    const key = target.actorId || normalizeName(target.name);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function findActorIdByName(name) {
+  const normalized = normalizeName(name);
+  const actor = Array.from(game.actors ?? []).find(candidate => normalizeName(candidate.name) === normalized);
+  return actor?.id || "";
+}
+
+function normalizeName(name) {
+  return String(name || "").trim().toLocaleLowerCase();
 }
 
 function getSpeakerActor(message) {
@@ -301,42 +463,10 @@ function getSpeakerActor(message) {
   return null;
 }
 
-function getTargetName(message) {
-  const targets = message.flags?.shadowdark?.targets
-    || message.flags?.core?.targets
-    || message.flags?.midiqol?.targets
-    || [];
-  const names = Array.from(targets)
-    .map(target => target?.name || target?.actor?.name || game.actors?.get(target?.actorId)?.name)
-    .filter(Boolean);
-
-  return names.join(", ");
-}
-
-function getMessageItemName(message, text) {
-  const itemId = message.flags?.shadowdark?.itemId
-    || message.flags?.core?.itemId
-    || message.flags?.dnd5e?.item?.id;
-  const actor = getSpeakerActor(message);
-  const item = itemId ? actor?.items?.get(itemId) : null;
-  if (item?.name) return item.name;
-
-  const action = getFieldValue(text, "ACTION");
-  if (action) return action;
-
-  const title = text.match(/^(.*?)\s*(?:attack|attacks|attack roll)/i)?.[1]?.trim();
-  return title && title.length <= 80 ? title : "";
-}
-
 function getMessageRolls(message) {
   if (Array.isArray(message.rolls)) return message.rolls;
   if (message.roll) return [message.roll];
   return [];
-}
-
-function getPrimaryRollTotal(rolls) {
-  const roll = rolls.find(candidate => Number.isFinite(Number(candidate?.total))) || rolls[0];
-  return roll?.total ?? "";
 }
 
 function rollContainsD20(roll) {
@@ -346,33 +476,10 @@ function rollContainsD20(roll) {
   return Array.from(roll?.dice ?? []).some(die => die?.faces === 20);
 }
 
-function looksLikeDamageOnlyMessage(text, hasD20, check) {
-  if (hasD20 || check) return false;
-  return text.includes("damage") || /\b\d+d(?:4|6|8|10|12)\b/i.test(text);
-}
-
-function looksLikeAttackAction(action) {
-  const actionText = action.toLocaleLowerCase();
-  return ATTACK_ACTION_TERMS.some(term => actionText.includes(term));
-}
-
 function getFieldValue(text, field) {
   const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = text.match(new RegExp(`\\b${escapedField}:\\s*([^|]+)`, "i"));
   return match?.[1]?.trim() || "";
-}
-
-function getInlineTarget(text) {
-  const match = text.match(/\bTargets?\s+(.+?)(?:\s*\||$)/i);
-  return match?.[1]?.trim() || "";
-}
-
-function getInlineD20Total(text) {
-  const rollMatch = text.match(/\b\d*d20(?:kh|kl)?(?:\s*[+-]\s*\d+)?\s*=\s*(\d+)/i);
-  if (rollMatch?.[1]) return rollMatch[1];
-
-  const check = getFieldValue(text, "CHECK");
-  return check;
 }
 
 function htmlToText(value) {
