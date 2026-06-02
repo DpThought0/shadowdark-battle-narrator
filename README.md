@@ -28,7 +28,7 @@ Battle tags are posted to Foundry chat in a consistent format:
 Battle Logger | TYPE: manual-tag | TAG: #fumble | ACTOR: Tyrex Zot II | ROUND: 2 | NOTE: Threw a spear into the darkness.
 ```
 
-By default, tags are whispered to GMs so they stay out of player chat while still being present in the chat log for export. You can change the default visibility, tag list, roster, and log prefix in the module settings.
+By default, tags are whispered to GMs so they stay out of player chat while still being present in the chat log for export. Actor and target choices are pulled from the world's Actors list, with manual override fields for one-off names. You can change the default visibility, tag list, and log prefix in the module settings.
 
 ## GitHub Setup
 

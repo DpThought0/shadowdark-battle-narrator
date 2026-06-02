@@ -11,16 +11,6 @@ const DEFAULT_TAGS = [
   "#heroMoment",
   "#comment"
 ];
-const DEFAULT_ROSTER = [
-  "Smag",
-  "Calder Vey",
-  "Tyrex Zot II",
-  "Magni Jotunblod",
-  "Gwinda the Good Lich",
-  "Goodboy the Terrible",
-  "Whole Party",
-  "Enemy / Other"
-];
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
@@ -77,15 +67,6 @@ function registerSettings() {
     type: String,
     default: DEFAULT_TAGS.join(", ")
   });
-
-  game.settings.register(MODULE_ID, "roster", {
-    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.Roster.Name",
-    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.Roster.Hint",
-    scope: "world",
-    config: true,
-    type: String,
-    default: DEFAULT_ROSTER.join(", ")
-  });
 }
 
 async function openBattleTagDialog() {
@@ -118,7 +99,8 @@ async function openBattleTagDialog() {
 function buildBattleTagForm() {
   const defaultVisibility = game.settings.get(MODULE_ID, "defaultVisibility");
   const tagOptions = getSettingList("tags").map(tag => optionHtml(tag, tag));
-  const rosterOptions = getSettingList("roster").map(name => optionHtml(name, name));
+  const actorOptions = getActorChoices("actor").map(actor => optionHtml(actor.name, actor.name));
+  const targetOptions = getActorChoices("target").map(actor => optionHtml(actor.name, actor.name));
 
   return `
     <form class="shadowdark-battle-narrator-form">
@@ -128,7 +110,10 @@ function buildBattleTagForm() {
       </div>
       <div class="form-group">
         <label>${game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Dialog.Actor")}</label>
-        <select name="actor">${rosterOptions}</select>
+        <select name="actor">
+          ${optionHtml("", game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Dialog.ActorPlaceholder"))}
+          ${actorOptions}
+        </select>
       </div>
       <div class="form-group">
         <label>${game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Dialog.OtherActor")}</label>
@@ -136,7 +121,14 @@ function buildBattleTagForm() {
       </div>
       <div class="form-group">
         <label>${game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Dialog.Target")}</label>
-        <input name="target" type="text">
+        <select name="target">
+          ${optionHtml("", game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Dialog.TargetPlaceholder"))}
+          ${targetOptions}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>${game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Dialog.OtherTarget")}</label>
+        <input name="otherTarget" type="text" placeholder="${escapeHtml(game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Dialog.OtherTargetPlaceholder"))}">
       </div>
       <div class="form-group">
         <label>${game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Dialog.Visibility")}</label>
@@ -156,10 +148,11 @@ function buildBattleTagForm() {
 function collectBattleTagForm(form) {
   const formData = new FormData(form);
   const actor = String(formData.get("otherActor") || formData.get("actor") || "").trim();
+  const target = String(formData.get("otherTarget") || formData.get("target") || "").trim();
   const entry = {
     tag: String(formData.get("tag") || "").trim(),
     actor,
-    target: String(formData.get("target") || "").trim(),
+    target,
     visibility: String(formData.get("visibility") || "gm"),
     note: String(formData.get("note") || "").trim()
   };
@@ -214,6 +207,38 @@ function getSettingList(setting) {
     .split(",")
     .map(value => value.trim())
     .filter(Boolean);
+}
+
+function getActorChoices(role) {
+  const actors = Array.from(game.actors ?? []);
+  const characters = actors.filter(actor => actor.type === "character");
+  const nonCharacters = actors.filter(actor => actor.type !== "character");
+  const preferred = role === "actor" ? characters : nonCharacters;
+  const fallback = role === "actor" ? nonCharacters : characters;
+  const names = [
+    ...sortActorsByName(preferred),
+    ...sortActorsByName(fallback)
+  ]
+    .filter(actor => actor?.name)
+    .map(actor => ({ name: actor.name, type: actor.type || "" }));
+
+  if (role === "actor") names.unshift({ name: "Whole Party", type: "party" });
+
+  return dedupeActors(names);
+}
+
+function sortActorsByName(actors) {
+  return [...actors].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function dedupeActors(actors) {
+  const seen = new Set();
+  return actors.filter(actor => {
+    const key = actor.name.toLocaleLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function optionHtml(value, label) {
