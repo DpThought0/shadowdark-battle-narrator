@@ -56,10 +56,13 @@ Battle Logger | TYPE: status-ended | ACTOR: Snow Ape | STATUS: Paralyzed
 
 ## GitHub Setup
 
-1. Create a new GitHub repository.
-2. Replace `YOUR_GITHUB_USERNAME` in `module.json`.
-3. Push this project to GitHub.
-4. Create a release tag such as `v0.1.0`.
+Foundry install manifest:
+
+```text
+https://github.com/DpThought0/shadowdark-battle-narrator/releases/latest/download/module.json
+```
+
+To publish a release, push a version tag such as `v0.1.0`.
 
 The included GitHub Actions workflow attaches both `module.json` and `module.zip` to releases.
 
@@ -68,11 +71,12 @@ The included GitHub Actions workflow attaches both `module.json` and `module.zip
 When publishing a new version:
 
 1. Update `version` in `module.json`.
-2. Update the version number in the `download` URL in `module.json`.
+2. Update the version number in the `download` URL in `module.json`, keeping the `v` prefix in the release path.
 3. Commit the change.
 4. Tag the release, for example:
 
 ```powershell
 git tag v0.1.1
-git push origin main --tags
+git push origin main
+git push origin v0.1.1
 ```
