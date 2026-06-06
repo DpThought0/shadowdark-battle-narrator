@@ -15,6 +15,7 @@ const lastDamageByTarget = new Map();
 const loggedKills = new Set();
 const loggedMoves = new Set();
 const loggedStatuses = new Set();
+const loggedRounds = new Set();
 const activeStatusByEffect = new Map();
 const VISIBILITY_CHOICES = {
   gm: "SHADOWDARK_BATTLE_NARRATOR.Visibility.GM",
@@ -46,10 +47,11 @@ Hooks.on("getSceneControlButtons", controls => {
 });
 
 Hooks.on("createChatMessage", message => {
-  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
+  if (!game.user?.isGM) return;
   if (message.flags?.[MODULE_ID]) return;
 
-  rememberDamage(message);
+  if (game.settings.get(MODULE_ID, "autoLogKills")) rememberDamage(message);
+  if (game.settings.get(MODULE_ID, "autoLogSpells")) logSpellCast(message);
 });
 
 Hooks.on("updateActor", (actor, changes) => {
@@ -79,6 +81,13 @@ Hooks.on("updateCombatant", combatant => {
   if (!combatant.defeated) return;
 
   void logKillCredit(combatant.actor, combatant.token);
+});
+
+Hooks.on("updateCombat", (combat, changes) => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogRounds")) return;
+  if (!hasOwn(changes, "round")) return;
+
+  void logRoundMarker(combat);
 });
 
 Hooks.on("createActiveEffect", effect => {
@@ -150,6 +159,26 @@ function registerSettings() {
     default: "gm"
   });
 
+  game.settings.register(MODULE_ID, "roundVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.RoundVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.RoundVisibility.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
+  game.settings.register(MODULE_ID, "spellVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.SpellVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.SpellVisibility.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
   game.settings.register(MODULE_ID, "logPrefix", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.LogPrefix.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.LogPrefix.Hint",
@@ -189,6 +218,24 @@ function registerSettings() {
   game.settings.register(MODULE_ID, "autoLogStatuses", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogStatuses.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogStatuses.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(MODULE_ID, "autoLogRounds", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogRounds.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogRounds.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(MODULE_ID, "autoLogSpells", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogSpells.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogSpells.Hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -342,10 +389,11 @@ async function createLoggerChatMessage(type, entry, visibility) {
   const turn = game.combat?.combatant?.name ?? "";
   const contextFields = entry.compact ? [] : [
     ["TARGET", entry.target],
+    ["ACTION", entry.action],
     ["ITEM", entry.item],
     ["DAMAGE", entry.damage],
     ["ROLL", entry.rollTotal],
-    ["ROUND", round],
+    ["ROUND", entry.round ?? round],
     ["TURN", turn],
     ["VISIBILITY", visibility],
     ["NOTE", entry.note]
@@ -452,6 +500,82 @@ async function logMove(token) {
   });
 }
 
+async function logRoundMarker(combat) {
+  const round = combat?.round;
+  if (!round) return;
+
+  const roundKey = `${combat.id}:${round}`;
+  if (loggedRounds.has(roundKey)) return;
+
+  loggedRounds.add(roundKey);
+  await postAutomatedLog({
+    type: "round",
+    round,
+    note: `Round ${round} begins.`
+  });
+}
+
+function logSpellCast(message) {
+  const spell = detectSpellCast(message);
+  if (!spell) return;
+
+  void postAutomatedLog({
+    type: "spell",
+    actor: spell.actor,
+    action: spell.action,
+    note: spell.note
+  });
+}
+
+function detectSpellCast(message) {
+  const rawText = stripHtml(message.content);
+  const text = compactSpaces(rawText);
+  const lowerText = text.toLocaleLowerCase();
+  const action = getCardTitle(message.content) || getFieldValue(text, "ACTION");
+  if (lowerText.startsWith("battle logger |")) return null;
+  if (!action) return null;
+  if (isAttackOrDamageMessage(message, text)) return null;
+  if (!looksLikeSpellCast(message, text, action)) return null;
+
+  return {
+    actor: getSpeakerActor(message)?.name || getMessageSpeaker(message),
+    action,
+    note: text.slice(0, 180)
+  };
+}
+
+function looksLikeSpellCast(message, text, action) {
+  const lowerText = text.toLocaleLowerCase();
+  const lowerAction = action.toLocaleLowerCase();
+  const itemType = getMessageItemType(message);
+  if (itemType === "spell") return true;
+  if (lowerText.includes("spell") || lowerText.includes("tier ")) return true;
+  if (lowerText.includes("duration:") || lowerText.includes("range:")) return true;
+  if (/^(web|light|cure wounds|holy weapon|mage armor|charm person|turn undead)$/i.test(action)) return true;
+  return lowerAction.includes("spell");
+}
+
+function isAttackOrDamageMessage(message, text) {
+  const lowerText = text.toLocaleLowerCase();
+  const rolls = getMessageRolls(message);
+  if (lowerText.includes("attack roll") || lowerText.includes("damage roll")) return true;
+  if (lowerText.includes("attacking with")) return true;
+  if (rolls.some(roll => rollContainsD20(roll)) && lowerText.includes("targets")) return true;
+  return /\b(?:1d20|2d20kh|2d20kl)\b/i.test(text) && /\bdamage\b/i.test(text);
+}
+
+function getMessageItemType(message) {
+  const itemType = message.flags?.shadowdark?.item?.type
+    || message.flags?.shadowdark?.itemType
+    || message.flags?.core?.item?.type
+    || message.flags?.dnd5e?.item?.type;
+  if (itemType) return String(itemType).toLocaleLowerCase();
+
+  const itemId = message.flags?.shadowdark?.itemId || message.flags?.core?.itemId || message.flags?.dnd5e?.item?.id;
+  const item = itemId ? getSpeakerActor(message)?.items?.get(itemId) : null;
+  return item?.type ? String(item.type).toLocaleLowerCase() : "";
+}
+
 function handleEffectChange(effect) {
   const actor = getEffectActor(effect);
   if (game.settings.get(MODULE_ID, "autoLogKills") && objectIncludesDeadMarker(effect)) {
@@ -507,6 +631,8 @@ function getConfiguredVisibility(type) {
     move: "moveVisibility",
     status: "statusVisibility",
     "status-ended": "statusVisibility",
+    round: "roundVisibility",
+    spell: "spellVisibility",
     manual: "manualTagVisibility"
   }[type] || "manualTagVisibility";
 
