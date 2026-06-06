@@ -38,7 +38,7 @@ Hooks.on("getSceneControlButtons", controls => {
   controls.tokens.tools.shadowdarkBattleNarrator = {
     name: "shadowdarkBattleNarrator",
     title: "SHADOWDARK_BATTLE_NARRATOR.Controls.BattleTag",
-    icon: "fa-solid fa-feather-pointed",
+    icon: "fa-solid fa-pen-nib",
     order: Object.keys(controls.tokens.tools).length,
     button: true,
     onChange: () => openBattleTagDialog()
