@@ -16,7 +16,10 @@ const loggedKills = new Set();
 const loggedMoves = new Set();
 const loggedStatuses = new Set();
 const loggedRounds = new Set();
+const loggedNats = new Set();
+const loggedInitiative = new Set();
 const activeStatusByEffect = new Map();
+const initiativeTimers = new Map();
 const VISIBILITY_CHOICES = {
   gm: "SHADOWDARK_BATTLE_NARRATOR.Visibility.GM",
   public: "SHADOWDARK_BATTLE_NARRATOR.Visibility.Public"
@@ -51,6 +54,7 @@ Hooks.on("createChatMessage", message => {
   if (message.flags?.[MODULE_ID]) return;
 
   if (game.settings.get(MODULE_ID, "autoLogKills")) rememberDamage(message);
+  if (game.settings.get(MODULE_ID, "autoLogNats")) logNatHighlight(message);
   if (game.settings.get(MODULE_ID, "autoLogSpells")) logSpellCast(message);
 });
 
@@ -77,10 +81,15 @@ Hooks.on("updateToken", (...args) => {
 });
 
 Hooks.on("updateCombatant", combatant => {
-  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
-  if (!combatant.defeated) return;
+  if (!game.user?.isGM) return;
 
-  void logKillCredit(combatant.actor, combatant.token);
+  if (game.settings.get(MODULE_ID, "autoLogKills") && combatant.defeated) {
+    void logKillCredit(combatant.actor, combatant.token);
+  }
+
+  if (game.settings.get(MODULE_ID, "autoLogInitiative") && Number.isFinite(Number(combatant.initiative))) {
+    scheduleInitiativeSummary(combatant.combat);
+  }
 });
 
 Hooks.on("updateCombat", (combat, changes) => {
@@ -179,6 +188,26 @@ function registerSettings() {
     default: "gm"
   });
 
+  game.settings.register(MODULE_ID, "natVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.NatVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.NatVisibility.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
+  game.settings.register(MODULE_ID, "initiativeVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.InitiativeVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.InitiativeVisibility.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
   game.settings.register(MODULE_ID, "logPrefix", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.LogPrefix.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.LogPrefix.Hint",
@@ -236,6 +265,24 @@ function registerSettings() {
   game.settings.register(MODULE_ID, "autoLogSpells", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogSpells.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogSpells.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(MODULE_ID, "autoLogNats", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogNats.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogNats.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(MODULE_ID, "autoLogInitiative", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogInitiative.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogInitiative.Hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -527,6 +574,69 @@ function logSpellCast(message) {
   });
 }
 
+function logNatHighlight(message) {
+  const d20Info = getD20Info(message, stripHtml(message.content));
+  if (!d20Info.nat) return;
+
+  const key = `${message.id || getMessageTime(message)}:${d20Info.nat}`;
+  if (loggedNats.has(key)) return;
+
+  loggedNats.add(key);
+  void postAutomatedLog({
+    type: "highlight",
+    tag: d20Info.nat === "NAT20" ? "#crit" : "#fumble",
+    actor: getSpeakerActor(message)?.name || getMessageSpeaker(message),
+    action: getCardTitle(message.content) || getFieldValue(stripHtml(message.content), "ACTION"),
+    rollTotal: d20Info.nat,
+    note: d20Info.nat === "NAT20" ? "Natural 20." : "Natural 1."
+  });
+}
+
+function scheduleInitiativeSummary(combat) {
+  if (!combat) return;
+
+  const key = combat.id;
+  if (initiativeTimers.has(key)) window.clearTimeout(initiativeTimers.get(key));
+
+  initiativeTimers.set(key, window.setTimeout(() => {
+    initiativeTimers.delete(key);
+    void logInitiativeSummary(combat);
+  }, 1000));
+}
+
+async function logInitiativeSummary(combat) {
+  if (!combat) return;
+
+  const playerCombatants = Array.from(combat.combatants ?? [])
+    .filter(combatant => isPlayerCombatant(combatant))
+    .filter(combatant => Number.isFinite(Number(combatant.initiative)));
+  if (!playerCombatants.length) return;
+
+  const combatantIds = playerCombatants
+    .map(combatant => combatant.id)
+    .sort()
+    .join(",");
+  const key = `${combat.id}:${combat.round ?? 0}:${combatantIds}`;
+  if (loggedInitiative.has(key)) return;
+
+  loggedInitiative.add(key);
+  const summary = playerCombatants
+    .sort((left, right) => Number(right.initiative) - Number(left.initiative))
+    .map(combatant => `${combatant.name}: ${combatant.initiative}`)
+    .join("; ");
+
+  await postAutomatedLog({
+    type: "initiative",
+    actor: "Players",
+    note: summary
+  });
+}
+
+function isPlayerCombatant(combatant) {
+  const actor = combatant.actor;
+  return Boolean(actor && (actor.type === "character" || actor.hasPlayerOwner));
+}
+
 function detectSpellCast(message) {
   const rawText = stripHtml(message.content);
   const text = compactSpaces(rawText);
@@ -633,6 +743,8 @@ function getConfiguredVisibility(type) {
     "status-ended": "statusVisibility",
     round: "roundVisibility",
     spell: "spellVisibility",
+    highlight: "natVisibility",
+    initiative: "initiativeVisibility",
     manual: "manualTagVisibility"
   }[type] || "manualTagVisibility";
 

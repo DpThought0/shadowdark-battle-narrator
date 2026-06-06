@@ -63,6 +63,13 @@ Battle Logger | TYPE: round | ROUND: 4
 Battle Logger | TYPE: spell | ACTOR: Gwinda the Good Lich | ACTION: Web
 ```
 
+Natural 20s, natural 1s, and player-only initiative summaries can be logged:
+
+```text
+Battle Logger | TYPE: highlight | TAG: #crit | ACTOR: Creeg Greythorn | ROLL: NAT20
+Battle Logger | TYPE: initiative | ACTOR: Players | NOTE: Creeg Greythorn: 18; Smag: 14
+```
+
 ## Export
 
 GMs can open **Configure Settings**, find **Shadowdark Battle Narrator**, and use **Export clean battle log** to download a cleaned text export of the current chat log.
