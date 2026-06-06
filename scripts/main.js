@@ -482,7 +482,7 @@ async function createLoggerChatMessage(type, entry, visibility) {
   const content = `<p class="shadowdark-battle-narrator-log">${escapeHtml(line)}</p>`;
   const messageData = {
     content,
-    speaker: ChatMessage.getSpeaker(),
+    speaker: getLogSpeaker(type, entry),
     flags: {
       [MODULE_ID]: {
         ...entry,
@@ -500,6 +500,15 @@ async function createLoggerChatMessage(type, entry, visibility) {
   }
 
   await ChatMessage.create(messageData);
+}
+
+function getLogSpeaker(type, entry) {
+  if (type !== "move") return ChatMessage.getSpeaker();
+
+  const actor = findActorByName(entry.actor);
+  if (actor) return ChatMessage.getSpeaker({ actor });
+
+  return { alias: entry.actor || game.user?.name || "Battle Logger" };
 }
 
 function rememberDamage(message) {
@@ -1221,9 +1230,13 @@ function dedupeTargets(targets) {
 }
 
 function findActorIdByName(name) {
-  const normalized = normalizeName(name);
-  const actor = Array.from(game.actors ?? []).find(candidate => normalizeName(candidate.name) === normalized);
+  const actor = findActorByName(name);
   return actor?.id || "";
+}
+
+function findActorByName(name) {
+  const normalized = normalizeName(name);
+  return Array.from(game.actors ?? []).find(candidate => normalizeName(candidate.name) === normalized);
 }
 
 function normalizeName(name) {
