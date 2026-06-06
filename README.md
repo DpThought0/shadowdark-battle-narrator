@@ -61,8 +61,10 @@ Battle Logger | TYPE: status-ended | ACTOR: Snow Ape | STATUS: Paralyzed
 Round starts and non-attack spells can also be logged:
 
 ```text
+Battle Logger | TYPE: combat-start | ROUND: 1
 Battle Logger | TYPE: round | ROUND: 4
 Battle Logger | TYPE: spell | ACTOR: Gwinda the Good Lich | ACTION: Web
+Battle Logger | TYPE: combat-end | ROUND: 6
 ```
 
 Natural 20s, natural 1s, and player-only initiative summaries can be logged:

@@ -105,6 +105,26 @@ Hooks.on("updateCombat", (combat, changes) => {
   void logRoundMarker(combat);
 });
 
+Hooks.on("createCombat", combat => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogCombatBoundaries")) return;
+
+  void postAutomatedLog({
+    type: "combat-start",
+    round: combat?.round || 1,
+    note: "Combat starts."
+  });
+});
+
+Hooks.on("deleteCombat", combat => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogCombatBoundaries")) return;
+
+  void postAutomatedLog({
+    type: "combat-end",
+    round: combat?.round || "",
+    note: "Combat ends."
+  });
+});
+
 Hooks.on("createActiveEffect", effect => {
   if (!game.user?.isGM) return;
 
@@ -214,6 +234,16 @@ function registerSettings() {
     default: "gm"
   });
 
+  game.settings.register(MODULE_ID, "combatBoundaryVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.CombatBoundaryVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.CombatBoundaryVisibility.Hint",
+    scope: "world",
+    config: false,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
   game.settings.register(MODULE_ID, "playerDownVisibility", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.PlayerDownVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.PlayerDownVisibility.Hint",
@@ -308,6 +338,15 @@ function registerSettings() {
   game.settings.register(MODULE_ID, "autoLogPlayerDown", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogPlayerDown.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogPlayerDown.Hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(MODULE_ID, "autoLogCombatBoundaries", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogCombatBoundaries.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogCombatBoundaries.Hint",
     scope: "world",
     config: false,
     type: Boolean,
@@ -428,6 +467,13 @@ function getAutomationSections() {
       description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Rounds.Description",
       enabledSetting: "autoLogRounds",
       visibilitySetting: "roundVisibility"
+    },
+    {
+      key: "combatBoundaries",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.CombatBoundaries.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.CombatBoundaries.Description",
+      enabledSetting: "autoLogCombatBoundaries",
+      visibilitySetting: "combatBoundaryVisibility"
     },
     {
       key: "spells",
@@ -920,6 +966,8 @@ function getConfiguredVisibility(type) {
     status: "statusVisibility",
     "status-ended": "statusVisibility",
     round: "roundVisibility",
+    "combat-start": "combatBoundaryVisibility",
+    "combat-end": "combatBoundaryVisibility",
     spell: "spellVisibility",
     highlight: "natVisibility",
     initiative: "initiativeVisibility",
