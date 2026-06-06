@@ -138,7 +138,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.ManualTagVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.ManualTagVisibility.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: VISIBILITY_CHOICES,
     default: "gm"
@@ -148,7 +148,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.KillCreditVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.KillCreditVisibility.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: VISIBILITY_CHOICES,
     default: "gm"
@@ -158,7 +158,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.MoveVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.MoveVisibility.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: VISIBILITY_CHOICES,
     default: "gm"
@@ -168,7 +168,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.StatusVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.StatusVisibility.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: VISIBILITY_CHOICES,
     default: "gm"
@@ -178,7 +178,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.RoundVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.RoundVisibility.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: VISIBILITY_CHOICES,
     default: "gm"
@@ -188,7 +188,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.SpellVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.SpellVisibility.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: VISIBILITY_CHOICES,
     default: "gm"
@@ -198,7 +198,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.NatVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.NatVisibility.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: VISIBILITY_CHOICES,
     default: "gm"
@@ -208,7 +208,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.InitiativeVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.InitiativeVisibility.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: VISIBILITY_CHOICES,
     default: "gm"
@@ -218,7 +218,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.PlayerDownVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.PlayerDownVisibility.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: VISIBILITY_CHOICES,
     default: "gm"
@@ -246,7 +246,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogKills.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogKills.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true
   });
@@ -255,7 +255,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogMoves.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogMoves.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true
   });
@@ -264,7 +264,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogStatuses.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogStatuses.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true
   });
@@ -273,7 +273,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogRounds.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogRounds.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true
   });
@@ -282,7 +282,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogSpells.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogSpells.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true
   });
@@ -291,7 +291,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogNats.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogNats.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true
   });
@@ -300,7 +300,7 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogInitiative.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogInitiative.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true
   });
@@ -309,9 +309,18 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogPlayerDown.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogPlayerDown.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true
+  });
+
+  game.settings.registerMenu(MODULE_ID, "automationSettings", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Name",
+    label: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Label",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Hint",
+    icon: "fa-solid fa-sliders",
+    type: AutomationSettingsForm,
+    restricted: true
   });
 
   game.settings.registerMenu(MODULE_ID, "exportCleanLog", {
@@ -345,6 +354,110 @@ class CleanLogExporter extends FormApplication {
   }
 
   async _updateObject() {}
+}
+
+class AutomationSettingsForm extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      id: "shadowdark-battle-narrator-automation-settings",
+      title: game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Name"),
+      template: `modules/${MODULE_ID}/templates/automation-settings.hbs`,
+      width: 640,
+      height: "auto",
+      closeOnSubmit: true
+    });
+  }
+
+  getData() {
+    return {
+      choices: [
+        { value: "gm", label: game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Visibility.GM") },
+        { value: "public", label: game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Visibility.Public") }
+      ],
+      sections: getAutomationSections().map(section => ({
+        ...section,
+        enabled: section.enabledSetting ? game.settings.get(MODULE_ID, section.enabledSetting) : true,
+        visibility: game.settings.get(MODULE_ID, section.visibilitySetting)
+      }))
+    };
+  }
+
+  async _updateObject(event, formData) {
+    for (const section of getAutomationSections()) {
+      if (section.enabledSetting) {
+        await game.settings.set(MODULE_ID, section.enabledSetting, Boolean(formData[section.enabledSetting]));
+      }
+
+      await game.settings.set(MODULE_ID, section.visibilitySetting, formData[section.visibilitySetting] || "gm");
+    }
+  }
+}
+
+function getAutomationSections() {
+  return [
+    {
+      key: "manual",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Manual.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Manual.Description",
+      visibilitySetting: "manualTagVisibility"
+    },
+    {
+      key: "moves",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Moves.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Moves.Description",
+      enabledSetting: "autoLogMoves",
+      visibilitySetting: "moveVisibility"
+    },
+    {
+      key: "kills",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Kills.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Kills.Description",
+      enabledSetting: "autoLogKills",
+      visibilitySetting: "killCreditVisibility"
+    },
+    {
+      key: "statuses",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Statuses.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Statuses.Description",
+      enabledSetting: "autoLogStatuses",
+      visibilitySetting: "statusVisibility"
+    },
+    {
+      key: "rounds",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Rounds.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Rounds.Description",
+      enabledSetting: "autoLogRounds",
+      visibilitySetting: "roundVisibility"
+    },
+    {
+      key: "spells",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Spells.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Spells.Description",
+      enabledSetting: "autoLogSpells",
+      visibilitySetting: "spellVisibility"
+    },
+    {
+      key: "nats",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Nats.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Nats.Description",
+      enabledSetting: "autoLogNats",
+      visibilitySetting: "natVisibility"
+    },
+    {
+      key: "initiative",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Initiative.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Initiative.Description",
+      enabledSetting: "autoLogInitiative",
+      visibilitySetting: "initiativeVisibility"
+    },
+    {
+      key: "playerDown",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.PlayerDown.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.PlayerDown.Description",
+      enabledSetting: "autoLogPlayerDown",
+      visibilitySetting: "playerDownVisibility"
+    }
+  ];
 }
 
 async function openBattleTagDialog() {

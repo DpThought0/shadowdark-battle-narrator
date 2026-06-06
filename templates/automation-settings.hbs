@@ -1,0 +1,35 @@
+<form class="shadowdark-battle-narrator-automation-settings">
+  {{#each sections}}
+    <section class="shadowdark-battle-narrator-setting-row">
+      <div class="shadowdark-battle-narrator-setting-copy">
+        <h3>{{localize label}}</h3>
+        <p>{{localize description}}</p>
+      </div>
+      <div class="shadowdark-battle-narrator-setting-controls">
+        {{#if enabledSetting}}
+          <label class="shadowdark-battle-narrator-inline-control">
+            <input type="checkbox" name="{{enabledSetting}}" {{checked enabled}}>
+            {{localize "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Enabled"}}
+          </label>
+        {{else}}
+          <span class="shadowdark-battle-narrator-muted">
+            {{localize "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.AlwaysAvailable"}}
+          </span>
+        {{/if}}
+        <label>
+          <span>{{localize "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.View"}}</span>
+          <select name="{{visibilitySetting}}">
+            {{selectOptions ../choices selected=visibility valueAttr="value" labelAttr="label"}}
+          </select>
+        </label>
+      </div>
+    </section>
+  {{/each}}
+
+  <footer class="sheet-footer flexrow">
+    <button type="submit">
+      <i class="fa-solid fa-save"></i>
+      {{localize "Save Changes"}}
+    </button>
+  </footer>
+</form>

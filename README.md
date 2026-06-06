@@ -32,6 +32,8 @@ By default, tags are whispered to GMs so they stay out of player chat while stil
 
 Visibility can be configured separately for manual tags, kill credits, movement logs, and status effect logs.
 
+Use **Automation settings** in the module settings to turn each category on or off and choose whether it is GM-only or public.
+
 ## Automatic Logs
 
 Shadowdark Battle Narrator can remember the last actor who damaged each target. When that target is later marked dead or defeated, the module adds a GM-only kill-credit entry to the chat log.
