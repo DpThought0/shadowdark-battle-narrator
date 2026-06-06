@@ -59,7 +59,7 @@
   "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogCombatBoundaries.Name": "Automatically log combat start/end",
   "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.AlwaysAvailable": "Always available",
   "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Enabled": "Active",
-  "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Hint": "Configure each battle narrator category in one place.",
+  "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Hint": "Battle narrator categories and visibility.",
   "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Label": "Configure",
   "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.Name": "Automation settings",
   "SHADOWDARK_BATTLE_NARRATOR.Settings.AutomationMenu.View": "View",

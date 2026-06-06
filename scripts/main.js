@@ -448,39 +448,11 @@ function getAutomationSections() {
       visibilitySetting: "moveVisibility"
     },
     {
-      key: "kills",
-      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Kills.Label",
-      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Kills.Description",
-      enabledSetting: "autoLogKills",
-      visibilitySetting: "killCreditVisibility"
-    },
-    {
       key: "statuses",
       label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Statuses.Label",
       description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Statuses.Description",
       enabledSetting: "autoLogStatuses",
       visibilitySetting: "statusVisibility"
-    },
-    {
-      key: "rounds",
-      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Rounds.Label",
-      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Rounds.Description",
-      enabledSetting: "autoLogRounds",
-      visibilitySetting: "roundVisibility"
-    },
-    {
-      key: "combatBoundaries",
-      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.CombatBoundaries.Label",
-      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.CombatBoundaries.Description",
-      enabledSetting: "autoLogCombatBoundaries",
-      visibilitySetting: "combatBoundaryVisibility"
-    },
-    {
-      key: "spells",
-      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Spells.Label",
-      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Spells.Description",
-      enabledSetting: "autoLogSpells",
-      visibilitySetting: "spellVisibility"
     },
     {
       key: "nats",
@@ -490,11 +462,39 @@ function getAutomationSections() {
       visibilitySetting: "natVisibility"
     },
     {
+      key: "combatBoundaries",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.CombatBoundaries.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.CombatBoundaries.Description",
+      enabledSetting: "autoLogCombatBoundaries",
+      visibilitySetting: "combatBoundaryVisibility"
+    },
+    {
       key: "initiative",
       label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Initiative.Label",
       description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Initiative.Description",
       enabledSetting: "autoLogInitiative",
       visibilitySetting: "initiativeVisibility"
+    },
+    {
+      key: "rounds",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Rounds.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Rounds.Description",
+      enabledSetting: "autoLogRounds",
+      visibilitySetting: "roundVisibility"
+    },
+    {
+      key: "spells",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Spells.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Spells.Description",
+      enabledSetting: "autoLogSpells",
+      visibilitySetting: "spellVisibility"
+    },
+    {
+      key: "kills",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Kills.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Kills.Description",
+      enabledSetting: "autoLogKills",
+      visibilitySetting: "killCreditVisibility"
     },
     {
       key: "playerDown",
