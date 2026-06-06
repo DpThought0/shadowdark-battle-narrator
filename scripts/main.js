@@ -16,6 +16,10 @@ const loggedKills = new Set();
 const loggedMoves = new Set();
 const loggedStatuses = new Set();
 const activeStatusByEffect = new Map();
+const VISIBILITY_CHOICES = {
+  gm: "SHADOWDARK_BATTLE_NARRATOR.Visibility.GM",
+  public: "SHADOWDARK_BATTLE_NARRATOR.Visibility.Public"
+};
 
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing`);
@@ -100,12 +104,49 @@ function registerSettings() {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.DefaultVisibility.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.DefaultVisibility.Hint",
     scope: "world",
+    config: false,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
+  game.settings.register(MODULE_ID, "manualTagVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.ManualTagVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.ManualTagVisibility.Hint",
+    scope: "world",
     config: true,
     type: String,
-    choices: {
-      gm: "SHADOWDARK_BATTLE_NARRATOR.Visibility.GM",
-      public: "SHADOWDARK_BATTLE_NARRATOR.Visibility.Public"
-    },
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
+  game.settings.register(MODULE_ID, "killCreditVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.KillCreditVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.KillCreditVisibility.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
+  game.settings.register(MODULE_ID, "moveVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.MoveVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.MoveVisibility.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
+  game.settings.register(MODULE_ID, "statusVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.StatusVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.StatusVisibility.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: VISIBILITY_CHOICES,
     default: "gm"
   });
 
@@ -183,7 +224,7 @@ async function openBattleTagDialog() {
 }
 
 function buildBattleTagForm() {
-  const defaultVisibility = game.settings.get(MODULE_ID, "defaultVisibility");
+  const defaultVisibility = getConfiguredVisibility("manual");
   const tagOptions = getSettingList("tags").map(tag => optionHtml(tag, tag));
   const actorOptions = getActorChoices("actor").map(actor => optionHtml(actor.name, actor.name));
   const targetOptions = getActorChoices("target").map(actor => optionHtml(actor.name, actor.name));
@@ -256,10 +297,11 @@ async function postBattleTag(entry) {
 }
 
 async function postAutomatedLog(entry) {
+  const visibility = entry.visibility || getConfiguredVisibility(entry.type);
   await createLoggerChatMessage(entry.type, {
     ...entry,
-    visibility: "gm"
-  }, "gm");
+    visibility
+  }, visibility);
 }
 
 async function createLoggerChatMessage(type, entry, visibility) {
@@ -425,6 +467,18 @@ function rememberActiveStatus(effect, actor, status) {
   if (!key) return;
 
   activeStatusByEffect.set(key, { actor, status });
+}
+
+function getConfiguredVisibility(type) {
+  const setting = {
+    "kill-credit": "killCreditVisibility",
+    move: "moveVisibility",
+    status: "statusVisibility",
+    "status-ended": "statusVisibility",
+    manual: "manualTagVisibility"
+  }[type] || "manualTagVisibility";
+
+  return game.settings.get(MODULE_ID, setting) || game.settings.get(MODULE_ID, "defaultVisibility") || "gm";
 }
 
 function isActorMarkedDead(actor, changes) {
