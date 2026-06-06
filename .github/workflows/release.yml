@@ -22,7 +22,7 @@ jobs:
       - name: Build module archive
         run: |
           mkdir -p dist
-          zip -r dist/module.zip module.json scripts styles languages README.md LICENSE
+          zip -r dist/module.zip module.json scripts styles languages templates README.md LICENSE
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

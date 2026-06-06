@@ -29,3 +29,14 @@
   margin: 0;
   padding-left: 8px;
 }
+
+.shadowdark-battle-narrator-export p {
+  margin: 0 0 12px;
+}
+
+.shadowdark-battle-narrator-export button {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+}

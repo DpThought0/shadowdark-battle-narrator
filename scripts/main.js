@@ -194,6 +194,38 @@ function registerSettings() {
     type: Boolean,
     default: true
   });
+
+  game.settings.registerMenu(MODULE_ID, "exportCleanLog", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.ExportCleanLog.Name",
+    label: "SHADOWDARK_BATTLE_NARRATOR.Settings.ExportCleanLog.Label",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.ExportCleanLog.Hint",
+    icon: "fa-solid fa-file-export",
+    type: CleanLogExporter,
+    restricted: true
+  });
+}
+
+class CleanLogExporter extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      id: "shadowdark-battle-narrator-export",
+      title: game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Export.Title"),
+      template: `modules/${MODULE_ID}/templates/export-log.hbs`,
+      width: 420,
+      height: "auto",
+      closeOnSubmit: false
+    });
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    html.find("[data-action='download']").on("click", () => {
+      exportCleanLog();
+      this.close();
+    });
+  }
+
+  async _updateObject() {}
 }
 
 async function openBattleTagDialog() {
@@ -479,6 +511,229 @@ function getConfiguredVisibility(type) {
   }[type] || "manualTagVisibility";
 
   return game.settings.get(MODULE_ID, setting) || game.settings.get(MODULE_ID, "defaultVisibility") || "gm";
+}
+
+function exportCleanLog() {
+  const messages = Array.from(game.messages)
+    .sort((left, right) => getMessageTime(left) - getMessageTime(right));
+  const lines = messages
+    .map((message, index) => buildCleanLogLine(message, index, messages))
+    .filter(Boolean);
+
+  saveText(lines.join("\n"), "foundry-battle-narrator-log.txt");
+}
+
+function buildCleanLogLine(message, index, messages) {
+  const time = new Date(getMessageTime(message)).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+  const speaker = getMessageSpeaker(message);
+  const rawText = stripHtml(message.content);
+  const action = getCardTitle(message.content);
+  const rolls = getExportRolls(message);
+  const cleaned = cleanExportText(rawText, action);
+  const attackInfo = extractAttackDamage(rawText);
+  const d20Info = getD20Info(message, rawText);
+
+  if (!cleaned && !action && rolls.length === 0) return null;
+  if (/Thanks for updating the Item Macro/i.test(rawText)) return null;
+
+  const parts = [`[${time}] ${speaker}`];
+  const initiative = isLikelyInitiativeCluster(index, messages);
+
+  if (initiative && rolls.length === 1 && /^-?\d+$/.test(compactSpaces(rawText))) {
+    parts.push(`INITIATIVE: ${rolls[0].total}`);
+    return parts.join(" | ");
+  }
+
+  if (action) parts.push(`ACTION: ${action}`);
+  if (d20Info.mode) parts.push(d20Info.mode);
+  if (d20Info.nat) parts.push(d20Info.nat);
+  if (attackInfo.attack) parts.push(`ATTACK: ${attackInfo.attack}`);
+  if (attackInfo.damage) parts.push(`DAMAGE: ${attackInfo.damage}`);
+  if (attackInfo.type) parts.push(`TYPE: ${attackInfo.type}`);
+
+  const isAttackCard = attackInfo.attack || attackInfo.damage;
+  if (!isAttackCard && d20Info.checkTotal !== null) parts.push(`CHECK: ${d20Info.checkTotal}`);
+  if (rolls.length > 0 && !isAttackCard && d20Info.checkTotal === null) {
+    parts.push(`ROLLS: ${rolls.map(roll => `${roll.formula} = ${roll.total}`).join("; ")}`);
+  }
+  if (cleaned && cleaned !== action) parts.push(`TEXT: ${cleaned}`);
+
+  return parts.join(" | ");
+}
+
+function saveText(text, filename) {
+  const blob = new Blob([text], { type: "text/plain" });
+  const link = document.createElement("a");
+  link.download = filename || "foundry-battle-narrator-log.txt";
+  link.href = window.URL.createObjectURL(blob);
+  link.click();
+  window.URL.revokeObjectURL(link.href);
+}
+
+function stripHtml(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html || "";
+  return div.textContent || div.innerText || "";
+}
+
+function compactSpaces(text) {
+  return (text || "").replace(/\s+/g, " ").trim();
+}
+
+function getCardTitle(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html || "";
+  const selectors = [".item-name", ".card-header h3", ".card-header h2", "header h3", "header h2", "h3", "h2"];
+
+  for (const selector of selectors) {
+    const element = div.querySelector(selector);
+    const text = compactSpaces(element?.textContent);
+    if (text) return text;
+  }
+
+  return null;
+}
+
+function getExportRolls(message) {
+  if (!message.rolls || message.rolls.length === 0) return [];
+
+  return message.rolls.map(roll => ({
+    formula: roll.formula || "roll",
+    total: roll.total ?? null
+  }));
+}
+
+function getRollMode(message, text) {
+  const formulas = (message.rolls || []).map(roll => roll.formula || "").join(" ");
+  const combined = `${formulas} ${compactSpaces(text)}`;
+  if (/\b2d20kh\b/i.test(combined)) return "ADV";
+  if (/\b2d20kl\b/i.test(combined)) return "DIS";
+  if (/\b2d20\b/i.test(combined) && /\bkh\b/i.test(combined)) return "ADV";
+  if (/\b2d20\b/i.test(combined) && /\bkl\b/i.test(combined)) return "DIS";
+  return null;
+}
+
+function getD20Info(message, text) {
+  const cleaned = compactSpaces(text);
+  const formulas = (message.rolls || []).map(roll => roll.formula || "").join(" ");
+  const combined = `${formulas} ${cleaned}`;
+  const d20s = [];
+
+  for (const roll of message.rolls || []) {
+    for (const die of roll.dice || []) {
+      if (die.faces !== 20) continue;
+      for (const result of die.results || []) {
+        if (typeof result.result === "number") d20s.push(result.result);
+      }
+    }
+  }
+
+  if (d20s.length === 0) {
+    const twoD20Match = cleaned.match(/\b2d20k[hl]\b[^0-9-]*.*?\b(20|1|[2-9]|1[0-9])\s+(20|1|[2-9]|1[0-9])\b/i);
+    const oneD20Match = cleaned.match(/\b1d20\b[^0-9-]*.*?\b(20|1|[2-9]|1[0-9])\s+\1\b/i);
+    if (twoD20Match) {
+      d20s.push(Number.parseInt(twoD20Match[1], 10));
+      d20s.push(Number.parseInt(twoD20Match[2], 10));
+    } else if (oneD20Match) {
+      d20s.push(Number.parseInt(oneD20Match[1], 10));
+    }
+  }
+
+  const nat = d20s.includes(20) ? "NAT20" : d20s.includes(1) ? "NAT1" : null;
+  const mode = getRollMode(message, text);
+  let checkTotal = null;
+
+  if (/\b(?:1d20|2d20kh|2d20kl)\b/i.test(combined) && !/Damage Roll/i.test(cleaned)) {
+    if (message.rolls?.length === 1 && typeof message.rolls[0].total === "number") {
+      checkTotal = message.rolls[0].total;
+    } else {
+      const numbers = cleaned.match(/-?\d+/g);
+      if (numbers?.length) checkTotal = Number.parseInt(numbers[numbers.length - 1], 10);
+    }
+  }
+
+  return { nat, mode, checkTotal };
+}
+
+function extractAttackDamage(text) {
+  const cleaned = compactSpaces(text);
+  const attackMatch = cleaned.match(/(?:^|\s)(?:1d20|2d20kh|2d20kl).*?\s(-?\d+)\s+Damage Roll/i);
+  const damageMatch = cleaned.match(/Damage Roll:?.*?\s(-?\d+)(?:\s+Type:|\s*$)/i);
+  const typeMatch = cleaned.match(/Type:\s*(Melee|Ranged)/i);
+
+  return {
+    attack: attackMatch ? attackMatch[1] : null,
+    damage: damageMatch ? damageMatch[1] : null,
+    type: typeMatch ? typeMatch[1] : null
+  };
+}
+
+function cleanExportText(text, action) {
+  let output = compactSpaces(text).replace(/@UUID\[[^\]]+\]\{[^}]+\}/g, "");
+  if (/Thanks for updating the Item Macro/i.test(output)) return "";
+  if (action === "Web") return output.replace(/Tier\s+\d+.*$/i, "").trim();
+
+  output = output
+    .replace(/You have advantage on your check to cast this spell\..*?(?=Tier|$)/i, "")
+    .replace(/One object you touch glows.*?(?=Tier|$)/i, "")
+    .replace(/Your touch restores.*?(?=Tier|$)/i, "")
+    .replace(/You spread your fingers.*?(?=Tier|$)/i, "")
+    .replace(/Your weapon becomes magical.*?(?=Tier|$)/i, "")
+    .replace(/One weapon you touch.*?(?=Tier|$)/i, "")
+    .replace(/An invisible layer of magical force.*?(?=Tier|$)/i, "")
+    .replace(/You magically beguile.*?(?=Tier|$)/i, "")
+    .replace(/You rebuke undead creatures.*?(?=Tier|$)/i, "")
+    .replace(/Tier\s+\d+.*$/i, "")
+    .replace(/Duration:.*$/i, "")
+    .replace(/Range:.*$/i, "")
+    .trim();
+
+  if (/Damage Roll/i.test(output) && action) return "";
+  return output;
+}
+
+function isLikelyInitiativeCluster(index, messages) {
+  const message = messages[index];
+  const text = compactSpaces(stripHtml(message.content));
+  if (!(message.rolls?.length === 1 && /^-?\d+$/.test(text))) return false;
+  if (!/^1d20\b/i.test(message.rolls[0].formula || "")) return false;
+
+  const currentTime = getMessageTime(message);
+  const nearby = messages.filter(other => {
+    const otherText = compactSpaces(stripHtml(other.content));
+    return other.rolls?.length === 1
+      && /^-?\d+$/.test(otherText)
+      && /^1d20\b/i.test(other.rolls?.[0]?.formula || "")
+      && Math.abs(getMessageTime(other) - currentTime) <= 150000;
+  });
+  const speakers = new Set(nearby.map(other => getMessageSpeaker(other)));
+  const playerLikeNames = [
+    "Tyrex Zot II",
+    "Magni Jötunblód",
+    "Gwinda the Good Lich",
+    "Glinda the Good Lich",
+    "Calder Vey",
+    "Smag",
+    "Goodboy the Terrible",
+    "Magnis Wolf",
+    "Magni's Wolf"
+  ];
+  const playerCount = playerLikeNames.filter(name => speakers.has(name)).length;
+  const hasEnemy = nearby.some(other => /Cultist|Zombie|Ghoul|Azer|Undead Warrior|Ochre Jelly/i.test(getMessageSpeaker(other)));
+
+  return playerCount >= 4 && hasEnemy;
+}
+
+function getMessageSpeaker(message) {
+  return message.alias || message.speaker?.alias || message.user?.name || "Unknown";
+}
+
+function getMessageTime(message) {
+  return new Date(message.timestamp || message.time || message._source?.timestamp || Date.now()).getTime();
 }
 
 function isActorMarkedDead(actor, changes) {

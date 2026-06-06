@@ -56,6 +56,10 @@ When a status effect ends, the module logs that too:
 Battle Logger | TYPE: status-ended | ACTOR: Snow Ape | STATUS: Paralyzed
 ```
 
+## Export
+
+GMs can open **Configure Settings**, find **Shadowdark Battle Narrator**, and use **Export clean battle log** to download a cleaned text export of the current chat log.
+
 ## GitHub Setup
 
 Foundry install manifest:
