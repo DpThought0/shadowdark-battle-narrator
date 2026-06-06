@@ -18,6 +18,7 @@ const loggedStatuses = new Set();
 const loggedRounds = new Set();
 const loggedNats = new Set();
 const loggedInitiative = new Set();
+const downedPlayers = new Set();
 const activeStatusByEffect = new Map();
 const initiativeTimers = new Map();
 const VISIBILITY_CHOICES = {
@@ -59,10 +60,15 @@ Hooks.on("createChatMessage", message => {
 });
 
 Hooks.on("updateActor", (actor, changes) => {
-  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogKills")) return;
-  if (!isActorMarkedDead(actor, changes)) return;
+  if (!game.user?.isGM) return;
 
-  void logKillCredit(actor);
+  if (game.settings.get(MODULE_ID, "autoLogPlayerDown")) {
+    void logPlayerDownRecovery(actor);
+  }
+
+  if (!isPlayerActor(actor) && game.settings.get(MODULE_ID, "autoLogKills") && isActorMarkedDead(actor, changes)) {
+    void logKillCredit(actor);
+  }
 });
 
 Hooks.on("updateToken", (...args) => {
@@ -208,6 +214,16 @@ function registerSettings() {
     default: "gm"
   });
 
+  game.settings.register(MODULE_ID, "playerDownVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.PlayerDownVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.PlayerDownVisibility.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
   game.settings.register(MODULE_ID, "logPrefix", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.LogPrefix.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.LogPrefix.Hint",
@@ -283,6 +299,15 @@ function registerSettings() {
   game.settings.register(MODULE_ID, "autoLogInitiative", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogInitiative.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogInitiative.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(MODULE_ID, "autoLogPlayerDown", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogPlayerDown.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogPlayerDown.Hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -439,6 +464,7 @@ async function createLoggerChatMessage(type, entry, visibility) {
     ["ACTION", entry.action],
     ["ITEM", entry.item],
     ["DAMAGE", entry.damage],
+    ["HP", entry.hp],
     ["ROLL", entry.rollTotal],
     ["ROUND", entry.round ?? round],
     ["TURN", turn],
@@ -547,6 +573,36 @@ async function logMove(token) {
   });
 }
 
+async function logPlayerDownRecovery(actor) {
+  if (!isPlayerActor(actor)) return;
+
+  const hp = getActorHpValue(actor);
+  if (!Number.isFinite(hp)) return;
+
+  if (hp <= 0) {
+    if (downedPlayers.has(actor.id)) return;
+
+    downedPlayers.add(actor.id);
+    await postAutomatedLog({
+      type: "downed",
+      actor: actor.name,
+      hp,
+      note: `${actor.name} is down.`
+    });
+    return;
+  }
+
+  if (!downedPlayers.has(actor.id)) return;
+
+  downedPlayers.delete(actor.id);
+  await postAutomatedLog({
+    type: "recovered",
+    actor: actor.name,
+    hp,
+    note: `${actor.name} is back up.`
+  });
+}
+
 async function logRoundMarker(combat) {
   const round = combat?.round;
   if (!round) return;
@@ -634,7 +690,7 @@ async function logInitiativeSummary(combat) {
 
 function isPlayerCombatant(combatant) {
   const actor = combatant.actor;
-  return Boolean(actor && (actor.type === "character" || actor.hasPlayerOwner));
+  return isPlayerActor(actor);
 }
 
 function detectSpellCast(message) {
@@ -745,6 +801,8 @@ function getConfiguredVisibility(type) {
     spell: "spellVisibility",
     highlight: "natVisibility",
     initiative: "initiativeVisibility",
+    downed: "playerDownVisibility",
+    recovered: "playerDownVisibility",
     manual: "manualTagVisibility"
   }[type] || "manualTagVisibility";
 
@@ -992,7 +1050,7 @@ function isTokenMarkedDead(token, changes) {
 
 function isPlayerTokenMove(token, changes) {
   const actor = getTokenActor(token);
-  if (!actor || (actor.type !== "character" && !actor.hasPlayerOwner)) return false;
+  if (!isPlayerActor(actor)) return false;
 
   return hasOwn(changes, "x")
     || hasOwn(changes, "y")
@@ -1000,6 +1058,10 @@ function isPlayerTokenMove(token, changes) {
     || foundry.utils?.hasProperty?.(changes, "x")
     || foundry.utils?.hasProperty?.(changes, "y")
     || foundry.utils?.hasProperty?.(changes, "elevation");
+}
+
+function isPlayerActor(actor) {
+  return Boolean(actor && (actor.type === "character" || actor.hasPlayerOwner));
 }
 
 function getMoveKey(actor) {

@@ -70,6 +70,13 @@ Battle Logger | TYPE: highlight | TAG: #crit | ACTOR: Creeg Greythorn | ROLL: NA
 Battle Logger | TYPE: initiative | ACTOR: Players | NOTE: Creeg Greythorn: 18; Smag: 14
 ```
 
+Player characters dropping and recovering can be logged:
+
+```text
+Battle Logger | TYPE: downed | ACTOR: Creeg Greythorn | HP: 0
+Battle Logger | TYPE: recovered | ACTOR: Creeg Greythorn | HP: 3
+```
+
 ## Export
 
 GMs can open **Configure Settings**, find **Shadowdark Battle Narrator**, and use **Export clean battle log** to download a cleaned text export of the current chat log.
