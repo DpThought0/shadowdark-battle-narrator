@@ -1170,35 +1170,7 @@ function cleanExportText(text, action) {
 }
 
 function isLikelyInitiativeCluster(index, messages) {
-  const message = messages[index];
-  const text = compactSpaces(stripHtml(message.content));
-  if (!(message.rolls?.length === 1 && /^-?\d+$/.test(text))) return false;
-  if (!/^1d20\b/i.test(message.rolls[0].formula || "")) return false;
-
-  const currentTime = getMessageTime(message);
-  const nearby = messages.filter(other => {
-    const otherText = compactSpaces(stripHtml(other.content));
-    return other.rolls?.length === 1
-      && /^-?\d+$/.test(otherText)
-      && /^1d20\b/i.test(other.rolls?.[0]?.formula || "")
-      && Math.abs(getMessageTime(other) - currentTime) <= 150000;
-  });
-  const speakers = new Set(nearby.map(other => getMessageSpeaker(other)));
-  const playerLikeNames = [
-    "Tyrex Zot II",
-    "Magni Jötunblód",
-    "Gwinda the Good Lich",
-    "Glinda the Good Lich",
-    "Calder Vey",
-    "Smag",
-    "Goodboy the Terrible",
-    "Magnis Wolf",
-    "Magni's Wolf"
-  ];
-  const playerCount = playerLikeNames.filter(name => speakers.has(name)).length;
-  const hasEnemy = nearby.some(other => /Cultist|Zombie|Ghoul|Azer|Undead Warrior|Ochre Jelly/i.test(getMessageSpeaker(other)));
-
-  return playerCount >= 4 && hasEnemy;
+  return false;
 }
 
 function getMessageSpeaker(message) {
