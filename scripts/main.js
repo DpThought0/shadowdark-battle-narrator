@@ -1146,25 +1146,10 @@ function extractAttackDamage(text) {
 }
 
 function cleanExportText(text, action) {
-  let output = compactSpaces(text).replace(/@UUID\[[^\]]+\]\{[^}]+\}/g, "");
-  if (/Thanks for updating the Item Macro/i.test(output)) return "";
-  if (action === "Web") return output.replace(/Tier\s+\d+.*$/i, "").trim();
-
-  output = output
-    .replace(/You have advantage on your check to cast this spell\..*?(?=Tier|$)/i, "")
-    .replace(/One object you touch glows.*?(?=Tier|$)/i, "")
-    .replace(/Your touch restores.*?(?=Tier|$)/i, "")
-    .replace(/You spread your fingers.*?(?=Tier|$)/i, "")
-    .replace(/Your weapon becomes magical.*?(?=Tier|$)/i, "")
-    .replace(/One weapon you touch.*?(?=Tier|$)/i, "")
-    .replace(/An invisible layer of magical force.*?(?=Tier|$)/i, "")
-    .replace(/You magically beguile.*?(?=Tier|$)/i, "")
-    .replace(/You rebuke undead creatures.*?(?=Tier|$)/i, "")
-    .replace(/Tier\s+\d+.*$/i, "")
-    .replace(/Duration:.*$/i, "")
-    .replace(/Range:.*$/i, "")
+  const output = compactSpaces(text)
+    .replace(/@UUID\[[^\]]+\]\{([^}]+)\}/g, "$1")
+    .replace(/Thanks for updating the Item Macro.*$/i, "")
     .trim();
-
   if (/Damage Roll/i.test(output) && action) return "";
   return output;
 }
