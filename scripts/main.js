@@ -143,6 +143,13 @@ Hooks.on("deleteActiveEffect", effect => {
   handleEffectRemoval(effect);
 });
 
+Hooks.once("init", () => {
+  void loadTemplates([
+    "modules/shadowdark-battle-narrator/templates/automation-settings.hbs",
+    "modules/shadowdark-battle-narrator/templates/export-log.hbs"
+  ]);
+});
+
 function registerSettings() {
   game.settings.register(MODULE_ID, "defaultVisibility", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.DefaultVisibility.Name",
