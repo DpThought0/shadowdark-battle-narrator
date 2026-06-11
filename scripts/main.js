@@ -1150,8 +1150,25 @@ function cleanExportText(text, action) {
     .replace(/@UUID\[[^\]]+\]\{([^}]+)\}/g, "$1")
     .replace(/Thanks for updating the Item Macro.*$/i, "")
     .trim();
+
+  const now = Date.now();
+  if (!cleanExportText.seenSpellDescriptions || now - (cleanExportText.lastRunAt || 0) > 1000) {
+    cleanExportText.seenSpellDescriptions = new Set();
+  }
+  cleanExportText.lastRunAt = now;
+
+  if (action && isExportSpellDescription(output)) {
+    const spellKey = normalizeName(action);
+    if (cleanExportText.seenSpellDescriptions.has(spellKey)) return "";
+    cleanExportText.seenSpellDescriptions.add(spellKey);
+  }
+
   if (/Damage Roll/i.test(output) && action) return "";
   return output;
+}
+
+function isExportSpellDescription(text) {
+  return /\b(?:spell|tier|duration|range)\b/i.test(text);
 }
 
 function isLikelyInitiativeCluster(index, messages) {
