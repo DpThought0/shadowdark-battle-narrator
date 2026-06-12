@@ -93,7 +93,7 @@ Hooks.on("updateCombatant", combatant => {
     void logKillCredit(combatant.actor, combatant.token);
   }
 
-  if (game.settings.get(MODULE_ID, "autoLogInitiative") && Number.isFinite(Number(combatant.initiative))) {
+  if (game.settings.get(MODULE_ID, "autoLogInitiative") && hasRolledInitiative(combatant)) {
     scheduleInitiativeSummary(combatant.combat);
   }
 });
@@ -839,9 +839,9 @@ async function logInitiativeSummary(combat) {
   if (!combat) return;
 
   const playerCombatants = Array.from(combat.combatants ?? [])
-    .filter(combatant => isPlayerCombatant(combatant))
-    .filter(combatant => Number.isFinite(Number(combatant.initiative)));
+    .filter(combatant => isPlayerCombatant(combatant));
   if (!playerCombatants.length) return;
+  if (playerCombatants.some(combatant => !hasRolledInitiative(combatant))) return;
 
   const combatantIds = playerCombatants
     .map(combatant => combatant.id)
@@ -866,6 +866,11 @@ async function logInitiativeSummary(combat) {
 function isPlayerCombatant(combatant) {
   const actor = combatant.actor;
   return isPlayerActor(actor);
+}
+
+function hasRolledInitiative(combatant) {
+  const initiative = combatant?.initiative;
+  return initiative !== null && initiative !== undefined && initiative !== "" && Number.isFinite(Number(initiative));
 }
 
 function detectSpellCast(message) {
