@@ -1099,6 +1099,7 @@ function getD20Info(message, text) {
   const cleaned = compactSpaces(text);
   const formulas = (message.rolls || []).map(roll => roll.formula || "").join(" ");
   const combined = `${formulas} ${cleaned}`;
+  const mode = getRollMode(message, text);
   const d20s = [];
 
   for (const roll of message.rolls || []) {
@@ -1121,8 +1122,7 @@ function getD20Info(message, text) {
     }
   }
 
-  const nat = d20s.includes(20) ? "NAT20" : d20s.includes(1) ? "NAT1" : null;
-  const mode = getRollMode(message, text);
+  const nat = getNaturalD20(d20s, mode);
   let checkTotal = null;
 
   if (/\b(?:1d20|2d20kh|2d20kl)\b/i.test(combined) && !/Damage Roll/i.test(cleaned)) {
@@ -1135,6 +1135,20 @@ function getD20Info(message, text) {
   }
 
   return { nat, mode, checkTotal };
+}
+
+function getNaturalD20(d20s, mode) {
+  if (!d20s.length) return null;
+
+  const keptD20s = mode === "ADV"
+    ? [Math.max(...d20s)]
+    : mode === "DIS"
+      ? [Math.min(...d20s)]
+      : d20s;
+
+  if (keptD20s.includes(20)) return "NAT20";
+  if (keptD20s.includes(1)) return "NAT1";
+  return null;
 }
 
 function extractAttackDamage(text) {

@@ -216,6 +216,21 @@ test("getD20Info detects natural rolls and advantage state", () => {
   );
 
   assert.equal(
+    api.getD20Info({ rolls: [roll({ formula: "2d20kh + 2", total: 19, results: [1, 17] })] }, "2d20kh + 2").nat,
+    null
+  );
+
+  assert.equal(
+    api.getD20Info({ rolls: [roll({ formula: "2d20kh + 2", total: 22, results: [20, 5] })] }, "2d20kh + 2").nat,
+    "NAT20"
+  );
+
+  assert.equal(
+    api.getD20Info({ rolls: [roll({ formula: "2d20kl + 1", total: 6, results: [20, 5] })] }, "2d20kl + 1").nat,
+    null
+  );
+
+  assert.equal(
     api.getD20Info({ rolls: [roll({ formula: "2d20kl + 1", total: 2, results: [1, 13] })] }, "2d20kl + 1").nat,
     "NAT1"
   );
