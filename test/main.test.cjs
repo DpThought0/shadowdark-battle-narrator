@@ -8,6 +8,21 @@ function loadModuleApi() {
   const sourcePath = path.join(__dirname, "..", "scripts", "main.js");
   const source = fs.readFileSync(sourcePath, "utf8");
   const createdChatMessages = [];
+  const settingValues = {
+    manualTagVisibility: "gm",
+    killCreditVisibility: "gm",
+    moveVisibility: "gm",
+    statusVisibility: "gm",
+    roundVisibility: "gm",
+    sceneVisibility: "gm",
+    spellVisibility: "gm",
+    natVisibility: "gm",
+    initiativeVisibility: "gm",
+    combatBoundaryVisibility: "gm",
+    playerDownVisibility: "gm",
+    defaultVisibility: "gm",
+    logPrefix: "Battle Logger"
+  };
   const context = {
     console,
     setTimeout,
@@ -35,20 +50,7 @@ function loadModuleApi() {
       messages: [],
       settings: {
         get(moduleId, setting) {
-          return {
-            manualTagVisibility: "gm",
-            killCreditVisibility: "gm",
-            moveVisibility: "gm",
-            statusVisibility: "gm",
-            roundVisibility: "gm",
-            sceneVisibility: "gm",
-            spellVisibility: "gm",
-            natVisibility: "gm",
-            initiativeVisibility: "gm",
-            combatBoundaryVisibility: "gm",
-            playerDownVisibility: "gm",
-            defaultVisibility: "gm"
-          }[setting];
+          return settingValues[setting];
         },
         register() {},
         registerMenu() {},
@@ -78,7 +80,7 @@ function loadModuleApi() {
     Blob: class {},
     ChatMessage: {
       getSpeaker() {
-        return { alias: "Battle Logger" };
+        return { alias: "Shadow" };
       },
       getWhisperRecipients() {
         return [{ id: "gm" }];
@@ -90,6 +92,7 @@ function loadModuleApi() {
     }
   };
   context.game.user.id = "gm";
+  context.settingValues = settingValues;
   context.createdChatMessages = createdChatMessages;
 
   vm.createContext(context);
@@ -109,10 +112,12 @@ globalThis.__sbnTestApi = {
   isAttackOrDamageMessage,
   isPlayerTokenMove,
   logInitiativeSummary,
+  logRoundMarker,
   logSceneChange,
   objectIncludesDeadMarker
 };
 globalThis.__sbnTestApi.createdChatMessages = createdChatMessages;`, context, { filename: sourcePath });
+  context.__sbnTestApi.settingValues = settingValues;
 
   return context.__sbnTestApi;
 }
@@ -296,6 +301,17 @@ test("logSceneChange creates a scene-change note", async () => {
   assert.equal(api.createdChatMessages.length, 1);
   assert.match(api.createdChatMessages[0].content, /TYPE: scene/);
   assert.match(api.createdChatMessages[0].content, /Scene changed to The Lost Citadel\./);
+});
+
+test("automated logger messages use the configured narrator speaker", async () => {
+  api.createdChatMessages.length = 0;
+
+  await api.logRoundMarker({ id: "combat-1", round: 2 });
+
+  assert.equal(api.createdChatMessages.length, 1);
+  assert.equal(api.createdChatMessages[0].speaker.alias, "Battle Logger");
+  assert.match(api.createdChatMessages[0].content, /TYPE: round/);
+  assert.match(api.createdChatMessages[0].content, /Round 2 begins\./);
 });
 
 test("state helpers recognize dead markers and player token movement", () => {

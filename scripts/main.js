@@ -703,12 +703,16 @@ async function createLoggerChatMessage(type, entry, visibility) {
 }
 
 function getLogSpeaker(type, entry) {
-  if (type !== "move") return ChatMessage.getSpeaker();
+  if (type !== "move") return { alias: getLoggerName() };
 
   const actor = findActorByName(entry.actor);
   if (actor) return ChatMessage.getSpeaker({ actor });
 
-  return { alias: entry.actor || game.user?.name || "Battle Logger" };
+  return { alias: entry.actor || getLoggerName() };
+}
+
+function getLoggerName() {
+  return String(game.settings.get(MODULE_ID, "logPrefix") || "Battle Logger").trim() || "Battle Logger";
 }
 
 function rememberDamage(message) {
