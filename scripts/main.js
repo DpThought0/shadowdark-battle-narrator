@@ -105,6 +105,14 @@ Hooks.on("updateCombat", (combat, changes) => {
   void logRoundMarker(combat);
 });
 
+Hooks.on("updateScene", (scene, changes, options, userId) => {
+  if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogScenes")) return;
+  if (userId && game.user?.id && userId !== game.user.id) return;
+  if (!hasOwn(changes, "active") || changes.active !== true) return;
+
+  void logSceneChange(scene);
+});
+
 Hooks.on("createCombat", combat => {
   if (!game.user?.isGM || !game.settings.get(MODULE_ID, "autoLogCombatBoundaries")) return;
 
@@ -261,6 +269,16 @@ function registerSettings() {
     default: "gm"
   });
 
+  game.settings.register(MODULE_ID, "sceneVisibility", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.SceneVisibility.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.SceneVisibility.Hint",
+    scope: "world",
+    config: false,
+    type: String,
+    choices: VISIBILITY_CHOICES,
+    default: "gm"
+  });
+
   game.settings.register(MODULE_ID, "logPrefix", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.LogPrefix.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.LogPrefix.Hint",
@@ -354,6 +372,15 @@ function registerSettings() {
   game.settings.register(MODULE_ID, "autoLogCombatBoundaries", {
     name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogCombatBoundaries.Name",
     hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogCombatBoundaries.Hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true
+  });
+
+  game.settings.register(MODULE_ID, "autoLogScenes", {
+    name: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogScenes.Name",
+    hint: "SHADOWDARK_BATTLE_NARRATOR.Settings.AutoLogScenes.Hint",
     scope: "world",
     config: false,
     type: Boolean,
@@ -474,6 +501,13 @@ function getAutomationSections() {
       description: "SHADOWDARK_BATTLE_NARRATOR.Automation.CombatBoundaries.Description",
       enabledSetting: "autoLogCombatBoundaries",
       visibilitySetting: "combatBoundaryVisibility"
+    },
+    {
+      key: "scenes",
+      label: "SHADOWDARK_BATTLE_NARRATOR.Automation.Scenes.Label",
+      description: "SHADOWDARK_BATTLE_NARRATOR.Automation.Scenes.Description",
+      enabledSetting: "autoLogScenes",
+      visibilitySetting: "sceneVisibility"
     },
     {
       key: "initiative",
@@ -863,6 +897,16 @@ async function logInitiativeSummary(combat) {
   });
 }
 
+async function logSceneChange(scene) {
+  const sceneName = scene?.name || scene?.navName || "";
+  if (!sceneName) return;
+
+  await postAutomatedLog({
+    type: "scene",
+    note: `Scene changed to ${sceneName}.`
+  });
+}
+
 function isPlayerCombatant(combatant) {
   const actor = combatant.actor;
   return isPlayerActor(actor);
@@ -980,6 +1024,7 @@ function getConfiguredVisibility(type) {
     round: "roundVisibility",
     "combat-start": "combatBoundaryVisibility",
     "combat-end": "combatBoundaryVisibility",
+    scene: "sceneVisibility",
     spell: "spellVisibility",
     highlight: "natVisibility",
     initiative: "initiativeVisibility",

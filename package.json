@@ -1,6 +1,6 @@
 {
   "name": "shadowdark-battle-narrator",
-  "version": "1.22.0",
+  "version": "1.23.0",
   "private": true,
   "scripts": {
     "test": "node --test"

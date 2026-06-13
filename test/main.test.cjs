@@ -41,6 +41,7 @@ function loadModuleApi() {
             moveVisibility: "gm",
             statusVisibility: "gm",
             roundVisibility: "gm",
+            sceneVisibility: "gm",
             spellVisibility: "gm",
             natVisibility: "gm",
             initiativeVisibility: "gm",
@@ -108,6 +109,7 @@ globalThis.__sbnTestApi = {
   isAttackOrDamageMessage,
   isPlayerTokenMove,
   logInitiativeSummary,
+  logSceneChange,
   objectIncludesDeadMarker
 };
 globalThis.__sbnTestApi.createdChatMessages = createdChatMessages;`, context, { filename: sourcePath });
@@ -284,6 +286,16 @@ test("logInitiativeSummary waits until every player combatant has rolled", async
   assert.equal(api.createdChatMessages.length, 1);
   assert.match(api.createdChatMessages[0].content, /Creeg: 18; Smag: 14/);
   assert.doesNotMatch(api.createdChatMessages[0].content, /null/);
+});
+
+test("logSceneChange creates a scene-change note", async () => {
+  api.createdChatMessages.length = 0;
+
+  await api.logSceneChange({ name: "The Lost Citadel" });
+
+  assert.equal(api.createdChatMessages.length, 1);
+  assert.match(api.createdChatMessages[0].content, /TYPE: scene/);
+  assert.match(api.createdChatMessages[0].content, /Scene changed to The Lost Citadel\./);
 });
 
 test("state helpers recognize dead markers and player token movement", () => {
