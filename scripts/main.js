@@ -32,6 +32,8 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", () => {
+  enableMovablePlayersPanel();
+
   if (!game.user?.isGM) return;
 
   ui.notifications.info(game.i18n.localize("SHADOWDARK_BATTLE_NARRATOR.Ready"));
@@ -404,6 +406,91 @@ function registerSettings() {
     type: CleanLogExporter,
     restricted: true
   });
+}
+
+function enableMovablePlayersPanel() {
+  const panel = document.getElementById("players");
+  if (!panel || panel.dataset.shadowdarkBattleNarratorMovable === "true") return;
+
+  panel.dataset.shadowdarkBattleNarratorMovable = "true";
+  panel.classList.add("shadowdark-battle-narrator-movable-players");
+  restorePlayersPanelPosition(panel);
+
+  let drag = null;
+
+  panel.addEventListener("pointerdown", event => {
+    if (event.button !== 0 || isInteractiveElement(event.target)) return;
+
+    const rect = panel.getBoundingClientRect();
+    drag = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top
+    };
+
+    panel.setPointerCapture?.(event.pointerId);
+    panel.classList.add("shadowdark-battle-narrator-dragging");
+    event.preventDefault();
+  });
+
+  panel.addEventListener("pointermove", event => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const rect = panel.getBoundingClientRect();
+    const left = clamp(event.clientX - drag.offsetX, 0, window.innerWidth - rect.width);
+    const top = clamp(event.clientY - drag.offsetY, 0, window.innerHeight - rect.height);
+    setPlayersPanelPosition(panel, left, top);
+  });
+
+  const stopDrag = event => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const rect = panel.getBoundingClientRect();
+    localStorage.setItem(`${MODULE_ID}.playersPanelPosition`, JSON.stringify({
+      left: rect.left,
+      top: rect.top
+    }));
+    panel.releasePointerCapture?.(event.pointerId);
+    panel.classList.remove("shadowdark-battle-narrator-dragging");
+    drag = null;
+  };
+
+  panel.addEventListener("pointerup", stopDrag);
+  panel.addEventListener("pointercancel", stopDrag);
+}
+
+function restorePlayersPanelPosition(panel) {
+  const raw = localStorage.getItem(`${MODULE_ID}.playersPanelPosition`);
+  if (!raw) return;
+
+  try {
+    const position = JSON.parse(raw);
+    if (!Number.isFinite(position.left) || !Number.isFinite(position.top)) return;
+
+    const rect = panel.getBoundingClientRect();
+    setPlayersPanelPosition(
+      panel,
+      clamp(position.left, 0, window.innerWidth - rect.width),
+      clamp(position.top, 0, window.innerHeight - rect.height)
+    );
+  } catch {
+    localStorage.removeItem(`${MODULE_ID}.playersPanelPosition`);
+  }
+}
+
+function setPlayersPanelPosition(panel, left, top) {
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  panel.style.right = "auto";
+  panel.style.bottom = "auto";
+}
+
+function isInteractiveElement(element) {
+  return Boolean(element?.closest?.("button, input, select, textarea, a, [role='button'], .player-active"));
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
 class CleanLogExporter extends FormApplication {
